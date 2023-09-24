@@ -164,9 +164,9 @@ Parameters:
     Type: String
     Default: 'cron(0 5 ? * * *)'
   DBServerInstanceType:
-    Description: 'The instance type of database server (e.g. db.t2.small).'
+    Description: 'The instance type of database server (e.g. db.t3.medium).'
     Type: String
-    Default: 'db.t2.small'
+    Default: 'db.t3.medium'
   DBBackupRetentionPeriod:
     Description: 'The number of days to keep snapshots of the database.'
     Type: Number
@@ -191,85 +191,88 @@ Parameters:
 Mappings:
   RegionMap:
     'ap-south-2':
-      AMI: 'ami-0adddf3a62f96d1b5'
-      PrefixListCloudFront: ''
+      AMI: 'ami-036d87c4b5e557058'
+      PrefixListCloudFront: 'pl-0a25c3463226fcc61'
     'ap-south-1':
-      AMI: 'ami-04de5880b95cc889b'
+      AMI: 'ami-0579bae099b504874'
       PrefixListCloudFront: 'pl-9aa247f3'
     'eu-south-1':
-      AMI: 'ami-01d4a9b484a05b97b'
+      AMI: 'ami-0a914332da537e79d'
       PrefixListCloudFront: 'pl-1bbc5972'
     'eu-south-2':
-      AMI: 'ami-06253e74fc19e0eb1'
-      PrefixListCloudFront: ''
+      AMI: 'ami-0a7d1ec93ac8b262d'
+      PrefixListCloudFront: 'pl-052dcbe0f793f19da'
     'me-central-1':
-      AMI: 'ami-09d2c157b7a5d450c'
-      PrefixListCloudFront: ''
+      AMI: 'ami-02c1c88c0a7d21a6c'
+      PrefixListCloudFront: 'pl-05266a86378662c23'
+    'il-central-1':
+      AMI: 'ami-080e21a9661f94810'
+      PrefixListCloudFront: 'pl-0dd89524416301988'
     'ca-central-1':
-      AMI: 'ami-06b2d3866642ed0c9'
+      AMI: 'ami-0634933bd8c9f5e98'
       PrefixListCloudFront: 'pl-38a64351'
     'eu-central-1':
-      AMI: 'ami-01aa7cea8549a00f9'
+      AMI: 'ami-0a2a6a10b645a609e'
       PrefixListCloudFront: 'pl-a3a144ca'
     'eu-central-2':
-      AMI: 'ami-04a5e55b40a2f4e17'
-      PrefixListCloudFront: ''
+      AMI: 'ami-0b6afc5be59d1af43'
+      PrefixListCloudFront: 'pl-00b37293991dbe6a8'
     'us-west-1':
-      AMI: 'ami-034f10b7ffb207ab9'
+      AMI: 'ami-0f56d8f4fdaf39279'
       PrefixListCloudFront: 'pl-4ea04527'
     'us-west-2':
-      AMI: 'ami-00b44d3dbe1f81742'
+      AMI: 'ami-00755a52896316cee'
       PrefixListCloudFront: 'pl-82a045eb'
     'af-south-1':
-      AMI: 'ami-00e8e8209a18663e2'
+      AMI: 'ami-02897988d6a298cc8'
       PrefixListCloudFront: 'pl-c0aa4fa9'
     'eu-north-1':
-      AMI: 'ami-09dcdb5d02bb278e6'
+      AMI: 'ami-0d4f49135e57daf78'
       PrefixListCloudFront: 'pl-fab65393'
     'eu-west-3':
-      AMI: 'ami-0d019491f88bb6bfa'
+      AMI: 'ami-06509bffd4252cf89'
       PrefixListCloudFront: 'pl-75b1541c'
     'eu-west-2':
-      AMI: 'ami-099431a4182b79e0f'
+      AMI: 'ami-0fc7663ee27a52476'
       PrefixListCloudFront: 'pl-93a247fa'
     'eu-west-1':
-      AMI: 'ami-0482b9ce45184e650'
+      AMI: 'ami-0aa6a4d042e0ccc31'
       PrefixListCloudFront: 'pl-4fa04526'
     'ap-northeast-3':
-      AMI: 'ami-0cad25854a164e77d'
+      AMI: 'ami-09de0771d3499d835'
       PrefixListCloudFront: 'pl-31a14458'
     'ap-northeast-2':
-      AMI: 'ami-0e6496235b65306a3'
+      AMI: 'ami-0ec77cfb1037681eb'
       PrefixListCloudFront: 'pl-22a6434b'
     'me-south-1':
-      AMI: 'ami-0d4d8011a357df005'
+      AMI: 'ami-0dd2efcb1350d662f'
       PrefixListCloudFront: 'pl-17b2577e'
     'ap-northeast-1':
-      AMI: 'ami-0e2faefe48ba06395'
+      AMI: 'ami-0baf2b5b1e0cfaeab'
       PrefixListCloudFront: 'pl-58a04531'
     'sa-east-1':
-      AMI: 'ami-09165e1a0a1e5de44'
+      AMI: 'ami-018cded4e74aec9cd'
       PrefixListCloudFront: 'pl-5da64334'
     'ap-east-1':
-      AMI: 'ami-0ebcbb292f46c7da5'
+      AMI: 'ami-01192e69f89fca9e6'
       PrefixListCloudFront: 'pl-14b2577d'
     'ap-southeast-1':
-      AMI: 'ami-0409b67925493d8b8'
+      AMI: 'ami-080367f396ea04ea7'
       PrefixListCloudFront: 'pl-31a34658'
     'ap-southeast-2':
-      AMI: 'ami-02ed9e6d22bd9a91b'
+      AMI: 'ami-046a52b150aed081a'
       PrefixListCloudFront: 'pl-b8a742d1'
     'ap-southeast-3':
-      AMI: 'ami-0ca95a7e548d98ea2'
+      AMI: 'ami-0c6c6c37ace590ed8'
       PrefixListCloudFront: 'pl-bca247d5'
     'ap-southeast-4':
-      AMI: 'ami-0b87154ecdce64563'
-      PrefixListCloudFront: ''
+      AMI: 'ami-0fb1709904e070832'
+      PrefixListCloudFront: 'pl-0fb7e7cfe038ae0e9'
     'us-east-1':
-      AMI: 'ami-065bb5126e4504910'
+      AMI: 'ami-098143f68772b34f5'
       PrefixListCloudFront: 'pl-3b927c52'
     'us-east-2':
-      AMI: 'ami-03dd1011b2501fbfd'
+      AMI: 'ami-0dbb0f9887f1fe98f'
       PrefixListCloudFront: 'pl-b6a144df'
 Conditions:
   HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, '']]
@@ -507,7 +510,7 @@ Resources:
       BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
       DatabaseName: wordpress
       DBSubnetGroupName: !Ref DBSubnetGroup
-      Engine: aurora
+      Engine: 'aurora-mysql'
       MasterUsername: wordpress
       MasterUserPassword: !Ref DBMasterUserPassword
       VpcSecurityGroupIds:
@@ -619,14 +622,14 @@ Resources:
     Properties:
       DBClusterIdentifier: !Ref DatabaseCluster
       DBInstanceClass: !Ref DBServerInstanceType
-      Engine: aurora
+      Engine: 'aurora-mysql'
       DBSubnetGroupName: !Ref DBSubnetGroup
   DatabaseB:
     Type: 'AWS::RDS::DBInstance'
     Properties:
       DBClusterIdentifier: !Ref DatabaseCluster
       DBInstanceClass: !Ref DBServerInstanceType
-      Engine: aurora
+      Engine: 'aurora-mysql'
       DBSubnetGroupName: !Ref DBSubnetGroup
   WebServerInstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
@@ -971,9 +974,9 @@ Resources:
                   # ensure than only one machine installs wp
                   if mkdir /var/www/lock; then
                     cd /var/www/html
-                    wget --quiet --timeout=60 --output-document=wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.7.1/wp-cli-2.7.1.phar
+                    wget --quiet --timeout=60 --output-document=wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.8.1/wp-cli-2.8.1.phar
                     if ! php wp-cli.phar core is-installed --allow-root; then
-                      php wp-cli.phar core download --allow-root --version=6.1.1
+                      php wp-cli.phar core download --allow-root --version=6.3.1
                       php wp-cli.phar core config --dbname='wordpress' --dbuser='wordpress' --dbpass='${DBMasterUserPassword}' --dbhost='${DBHost}' --allow-root
                       php wp-cli.phar core install --url='https://${DomainName}' --title='${BlogTitle}' --admin_user='${BlogAdminUsername}' --admin_password='${BlogAdminPassword}' --admin_email='${BlogAdminEMail}' --skip-email --allow-root
                       sed -i "/$table_prefix = 'wp_';/a\$_SERVER['HTTPS'] = 'on';" /var/www/html/wp-config.php

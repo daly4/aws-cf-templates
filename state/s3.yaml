@@ -18,7 +18,6 @@ Metadata:
       - BucketName
       - Access
       - Versioning
-      - ReadWritePolicy
       - NoncurrentVersionExpirationInDays
       - ExpirationInDays
       - ExpirationPrefix
@@ -76,19 +75,13 @@ Parameters:
     Description: 'Access policy of the bucket.'
     Type: String
     Default: Private
-    AllowedValues: [Private, PublicRead, CloudFrontRead, CloudFrontAccessLogWrite, ElbAccessLogWrite, S3AccessLogWrite, ConfigWrite, CloudTrailWrite, VpcEndpointRead, FlowLogWrite]
-  
+    AllowedValues: [Private, PublicRead, PublicWrite, PublicReadAndWrite, CloudFrontRead, CloudFrontAccessLogWrite, ElbAccessLogWrite, S3AccessLogWrite, ConfigWrite, CloudTrailWrite, VpcEndpointRead, FlowLogWrite]
+
   Versioning:
     Description: 'Enable versioning to keep a backup if objects change.'
     Type: String
     Default: true
     AllowedValues: [true, false, 'false-but-was-true']
-
-  ReadWritePolicy:
-    Description: 'Create Read/Write policy for bucket for app access.'
-    Type: String
-    Default: false
-    AllowedValues: [true, false]
 
   NoncurrentVersionExpirationInDays:
     Description: 'Remove noncurrent object versions after days (set to 0 to disable).'
@@ -205,7 +198,8 @@ Conditions:
   HasS3Bucket: !Not [!Equals [!Ref ParentS3StackAccessLog, '']]
   HasS3VirusScan: !Not [!Equals [!Ref ParentS3VirusScanStack, '']]
   HasPrivateAccess: !Equals [!Ref Access, Private]
-  HasPublicReadAccess: !Equals [!Ref Access, PublicRead]
+  HasPublicReadAccess: !Or [!Equals [!Ref Access, PublicRead], !Equals [!Ref Access, PublicReadAndWrite]]
+  HasPublicWriteAccess: !Or [!Equals [!Ref Access, PublicWrite], !Equals [!Ref Access, PublicReadAndWrite]]
   HasCloudFrontReadAccess: !Equals [!Ref Access, CloudFrontRead]
   HasCloudFrontAccessLogWrite: !Equals [!Ref Access, CloudFrontAccessLogWrite]
   HasElbAccessLogWriteAccess: !Equals [!Ref Access, ElbAccessLogWrite]
@@ -226,9 +220,9 @@ Conditions:
   HasPartitionUsGov: !Equals [!Ref 'AWS::Partition', 'aws-us-gov']
   HasLambdaFunctionArn: !Not [!Equals [!Ref LambdaFunctionArn, '']]
   HasLambdaFunctionFilterPrefix: !Not [!Equals [!Ref LambdaFunctionFilterPrefix, '']]
-  HasPublicAccessBlock: !Not [!Condition HasPublicReadAccess]
+  HasBlockPublicAccess: !Not [!Or [!Condition HasPublicReadAccess, !Condition HasPublicWriteAccess]]
   HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, '']]
-  HasReadWritePolicy: !Equals [!Ref ReadWritePolicy, true]
+  HasBucketOwnerPreferred: !Or [!Condition HasCloudFrontAccessLogWrite, !Condition HasS3AccessLogWrite, !Not [!Condition HasBlockPublicAccess]]
 
 Resources:
   Bucket: # cannot be deleted with data
@@ -254,7 +248,8 @@ Resources:
         - !If [HasLambdaFunctionArn, {Event: !Ref LambdaFunctionEvent, Function: !Ref LambdaFunctionArn, Filter: !If [HasLambdaFunctionFilterPrefix, {S3Key: {Rules: [{Name: prefix, Value: !Ref LambdaFunctionFilterPrefix}]}}, !Ref 'AWS::NoValue']}, !Ref 'AWS::NoValue']
         QueueConfigurations:
         - !If [HasS3VirusScan, {Event: 's3:ObjectCreated:*', Queue: {'Fn::ImportValue': !Sub '${ParentS3VirusScanStack}-ScanQueueArn'}}, !Ref 'AWS::NoValue']
-      PublicAccessBlockConfiguration: !If [HasPublicAccessBlock, {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}, !Ref 'AWS::NoValue'] # AWS Foundational Security Best Practices v1.0.0 S3.8
+      OwnershipControls: !If [HasBucketOwnerPreferred, {Rules: [{ObjectOwnership: BucketOwnerPreferred}]}, {Rules: [{ObjectOwnership: BucketOwnerEnforced}]}]
+      PublicAccessBlockConfiguration: !If [HasBlockPublicAccess, {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}, {BlockPublicAcls: true, BlockPublicPolicy: false, IgnorePublicAcls: true, RestrictPublicBuckets: false}] # AWS Foundational Security Best Practices v1.0.0 S3.8
       VersioningConfiguration: !If [HasVersioning, {Status: Enabled}, !If [HadVersioning, {Status: Suspended}, !Ref 'AWS::NoValue']]
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -313,6 +308,20 @@ Resources:
             Action: 's3:GetObject'
             Effect: Allow
             Resource: !Sub '${Bucket.Arn}/*'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - HasPublicWriteAccess
+          - Principal: '*'
+            Action: 's3:PutObject'
+            Effect: Allow
+            Resource: !Sub '${Bucket.Arn}/*'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - HasPublicWriteAccess
+          - Principal: '*'
+            Action: 's3:GetBucketAcl'
+            Effect: Allow
+            Resource: !GetAtt 'Bucket.Arn'
           - !Ref 'AWS::NoValue'
         - !If
           - HasCloudFrontReadAccess
@@ -520,9 +529,9 @@ Resources:
       Code:
         ZipFile: |
           'use strict';
-          const AWS = require('aws-sdk');
           const response = require('cfn-response');
-          const s3 = new AWS.S3({apiVersion: '2006-03-01'});
+          const { S3Client, GetBucketAclCommand, PutBucketAclCommand } = require('@aws-sdk/client-s3');
+          const s3 = new S3Client({apiVersion: '2006-03-01'});
           exports.handler = (event, context, cb) => {
             console.log(`Invoke: ${JSON.stringify(event)}`);
             function done(err) {
@@ -534,28 +543,28 @@ Resources:
               }
             }
             if (event.RequestType === 'Delete') {
-              s3.getBucketAcl({
+              s3.send(new GetBucketAclCommand({
                 Bucket: event.ResourceProperties.Bucket
-              }, (err, acl) => {
+              }), (err, acl) => {
                 if (err) {
-                  if (err.code === 'NoSuchBucket') {
+                  if (err.name === 'NoSuchBucket') {
                     done();
                   } else {
                     done(err);
                   }
                 } else {
                   acl.Grants = acl.Grants.filter(grant => !(grant.Permission === 'FULL_CONTROL' && grant.Grantee.Type === 'CanonicalUser' && grant.Grantee.ID === 'c4c1ede66af53448b93c283ce9448c4ba468c9432aa01d700d3878632f77d2d0'));
-                  s3.putBucketAcl({
+                  s3.send(new PutBucketAclCommand({
                     Bucket: event.ResourceProperties.Bucket,
                     AccessControlPolicy: acl
-                  }, done);
+                  }), done);
                 }
               });
             } else if (event.RequestType === 'Update' || event.RequestType === 'Create') {
               // The only attribute that can change is the Bucket which is used as the physical id. If Bucket changes, a DELETE call is received during CloudFormation's cleanup.
-              s3.getBucketAcl({
+              s3.send(new GetBucketAclCommand({
                 Bucket: event.ResourceProperties.Bucket
-              }, (err, acl) => {
+              }), (err, acl) => {
                 if (err) {
                   done(err);
                 } else {
@@ -567,10 +576,10 @@ Resources:
                     },
                     Permission: 'FULL_CONTROL'
                   });
-                  s3.putBucketAcl({
+                  s3.send(new PutBucketAclCommand({
                     Bucket: event.ResourceProperties.Bucket,
                     AccessControlPolicy: acl
-                  }, done);
+                  }), done);
                 }
               });
             } else {
@@ -580,7 +589,7 @@ Resources:
       Handler: 'index.handler'
       MemorySize: 128
       Role: !GetAtt 'LambdaRole.Arn'
-      Runtime: 'nodejs16.x'
+      Runtime: 'nodejs18.x'
       Timeout: 60
   
   LambdaLogGroup:

@@ -1,19 +1,7 @@
----
-# Copyright 2018 widdix GmbH
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Fargate: service that runs on a Fargate cluster based on fargate/cluster.yaml and uses a dedicated ALB, a cloudonaut.io template'
+
+Description: 'Fargate: service that runs on a Fargate cluster based on fargate/cluster.yaml and uses a dedicated ALB'
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -59,6 +47,30 @@ Metadata:
       - AppEnvironment2Value
       - AppEnvironment3Key
       - AppEnvironment3Value
+      - AppEnvironment4Key
+      - AppEnvironment4Value
+      - AppEnvironment5Key
+      - AppEnvironment5Value
+      - AppEnvironment6Key
+      - AppEnvironment6Value
+      - AppEnvironment7Key
+      - AppEnvironment7Value
+      - AppEnvironment8Key
+      - AppEnvironment8Value
+      - AppEnvironment9Key
+      - AppEnvironment9Value
+      - AppEnvironment10Key
+      - AppEnvironment10Value
+      - AppSecret1Key
+      - AppSecret1Value
+      - AppSecret2Key
+      - AppSecret2Value
+      - AppSecret3Key
+      - AppSecret3Value
+      - AppSecret4Key
+      - AppSecret4Value
+      - AppSecret5Key
+      - AppSecret5Value
       - SidecarImage
       - SidecarCommand
       - SidecarPort
@@ -86,49 +98,69 @@ Metadata:
         default: 'Permission Parameters'
       Parameters:
       - PermissionsBoundary
+    - Label:
+        default: 'Mandatory Tags'
+      Parameters:
+      - EnvironmentStage
+      - Application
+      - ApplicationVersion
+      - ProjectCostCenter
+
 Parameters:
+
   ParentVPCStack:
     Description: 'Stack name of parent VPC stack based on vpc/vpc-*azs.yaml template.'
     Type: String
+
   ParentClusterStack:
     Description: 'Stack name of parent Cluster stack based on fargate/cluster.yaml template.'
     Type: String
+
   ParentAuthProxyStack:
     Description: 'Optional stack name of parent auth proxy stack based on security/auth-proxy-*.yaml template.'
     Type: String
     Default: ''
+
   ParentAlertStack:
     Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
     Type: String
     Default: ''
+
   ParentZoneStack:
     Description: 'Optional stack name of parent zone stack based on vpc/zone-*.yaml template.'
     Type: String
     Default: ''
+
   ParentS3StackAccessLog:
     Description: 'Optional stack name of parent s3 stack based on state/s3.yaml template (with Access set to ElbAccessLogWrite) to store access logs.'
     Type: String
     Default: ''
+
   ParentClientStack1:
     Description: 'Optional stack name of parent Client Security Group stack based on state/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
     Type: String
     Default: ''
+
   ParentClientStack2:
     Description: 'Optional stack name of parent Client Security Group stack based on state/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
     Type: String
     Default: ''
+
   ParentClientStack3:
     Description: 'Optional stack name of parent Client Security Group stack based on state/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
     Type: String
     Default: ''
+
   ParentWAFStack:
     Description: 'Optional stack name of parent WAF stack based on the security/waf.yaml template.'
     Type: String
     Default: ''
+
   PermissionsBoundary:
     Description: 'Optional ARN for a policy that will be used as the permission boundary for all roles created by this template.'
     Type: String
     Default: ''
+
   LoadBalancerScheme:
     Description: 'Indicates whether the load balancer in front of the ECS service is internet-facing or internal.'
     Type: String
@@ -136,16 +168,19 @@ Parameters:
     AllowedValues:
     - 'internet-facing'
     - internal
+
   LoadBalancerCertificateArn:
     Description: 'Optional Amazon Resource Name (ARN) of the certificate to associate with the load balancer. If set, HTTP requests are redirected to HTTPS.'
     Type: String
     Default: ''
+
   LoadBalancerIdleTimeout:
     Description: 'The idle timeout value, in seconds.'
     Type: Number
     Default: 60
     MinValue: 1
     MaxValue: 4000
+
   LoadBalancerDeregistrationDelay:
     Description: 'The amount time (in seconds) to wait before changing the state of a deregistering target from draining to unused.'
     Type: Number
@@ -153,161 +188,317 @@ Parameters:
     ConstraintDescription: 'Must be in the range [0-3600]'
     MinValue: 0
     MaxValue: 3600
+
   TaskPolicies:
     Description: 'Comma-delimited list of IAM managed policy ARNs to attach to the task IAM role'
     Type: String
     Default: ''
+
   ProxyImage:
     Description: 'Optional Docker image to use for the proxy container. You can use images in the Docker Hub registry or specify other repositories (repository-url/image:tag).'
     Type: String
     Default: ''
+
   ProxyCommand:
     Description: 'Optional command used when starting the proxy container.'
     Type: String
     Default: ''
+
   ProxyPort:
     Description: 'The port exposed by the proxy container that receives traffic from the load balancer (ProxyPort <> AppPort <> SidecarPort; ignored if ProxyImage is not set).'
     Type: Number
     Default: 8000
     MinValue: 1
     MaxValue: 49150
+
   ProxyEnvironment1Key:
     Description: 'Optional environment variable 1 key for proxy container.'
     Type: String
     Default: ''
+
   ProxyEnvironment1Value:
     Description: 'Optional environment variable 1 value for proxy container.'
     Type: String
     Default: ''
+    
   ProxyEnvironment2Key:
     Description: 'Optional environment variable 2 key for proxy container.'
     Type: String
     Default: ''
+
   ProxyEnvironment2Value:
     Description: 'Optional environment variable 2 value for proxy container.'
     Type: String
     Default: ''
+
   ProxyEnvironment3Key:
     Description: 'Optional environment variable 3 key for proxy container.'
     Type: String
     Default: ''
+
   ProxyEnvironment3Value:
     Description: 'Optional environment variable 3 value for proxy container.'
     Type: String
     Default: ''
+
   AppImage:
     Description: 'The Docker image to use for the app container. You can use images in the Docker Hub registry or specify other repositories (repository-url/image:tag).'
     Type: String
     Default: 'widdix/hello:v1'
+
   AppCommand:
     Description: 'Optional commands (comma-delimited) used when starting the app container.'
     Type: String
     Default: ''
+
   AppPort:
     Description: 'The port exposed by the app container that receives traffic from the load balancer or the proxy container (AppPort <> ProxyPort <> SidecarPort).'
     Type: Number
     Default: 80
     MinValue: 1
     MaxValue: 49150
+
   AppEnvironment1Key:
     Description: 'Optional environment variable 1 key for app container.'
     Type: String
     Default: ''
+
   AppEnvironment1Value:
     Description: 'Optional environment variable 1 value for app container.'
     Type: String
     Default: ''
+
   AppEnvironment2Key:
     Description: 'Optional environment variable 2 key for app container.'
     Type: String
     Default: ''
+
   AppEnvironment2Value:
     Description: 'Optional environment variable 2 value for app container.'
     Type: String
     Default: ''
+
   AppEnvironment3Key:
     Description: 'Optional environment variable 3 key for app container.'
     Type: String
     Default: ''
+
   AppEnvironment3Value:
     Description: 'Optional environment variable 3 value for app container.'
     Type: String
     Default: ''
+
+  AppEnvironment4Key:
+    Description: 'Optional environment variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment4Value:
+    Description: 'Optional environment variable 3 value for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment5Key:
+    Description: 'Optional environment variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment5Value:
+    Description: 'Optional environment variable 3 value for app container.'
+    Type: String
+    Default: ''
+    
+  AppEnvironment6Key:
+    Description: 'Optional environment variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment6Value:
+    Description: 'Optional environment variable 3 value for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment7Key:
+    Description: 'Optional environment variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment7Value:
+    Description: 'Optional environment variable 3 value for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment8Key:
+    Description: 'Optional environment variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment8Value:
+    Description: 'Optional environment variable 3 value for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment9Key:
+    Description: 'Optional environment variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment9Value:
+    Description: 'Optional environment variable 3 value for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment10Key:
+    Description: 'Optional environment variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppEnvironment10Value:
+    Description: 'Optional environment variable 3 value for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret1Key:
+    Description: 'Optional secret variable 1 key for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret1Value:
+    Description: 'Optional secret variable 1 value for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret2Key:
+    Description: 'Optional secret variable 2 key for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret2Value:
+    Description: 'Optional secret variable 2 value for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret3Key:
+    Description: 'Optional secret variable 3 key for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret3Value:
+    Description: 'Optional secret variable 3 value for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret4Key:
+    Description: 'Optional secret variable 4 key for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret4Value:
+    Description: 'Optional secret variable 4 value for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret5Key:
+    Description: 'Optional secret variable 5 key for app container.'
+    Type: String
+    Default: ''
+
+  AppSecret5Value:
+    Description: 'Optional secret variable 5 value for app container.'
+    Type: String
+    Default: ''
+
   SidecarImage:
     Description: 'Optional Docker image to use for the sidecar container. You can use images in the Docker Hub registry or specify other repositories (repository-url/image:tag).'
     Type: String
     Default: ''
+
   SidecarCommand:
     Description: 'Optional command used when starting the sidecar container.'
     Type: String
     Default: ''
+
   SidecarPort:
     Description: 'The port exposed by the sidecar container reachable from the app container on host localhost (SidecarPort <> ProxyPort <> AppPort).'
     Type: Number
     Default: 9000
     MinValue: 1
     MaxValue: 49150
+
   SidecarEnvironment1Key:
     Description: 'Optional environment variable 1 key for sidecar container.'
     Type: String
     Default: ''
+
   SidecarEnvironment1Value:
     Description: 'Optional environment variable 1 value for sidecar container.'
     Type: String
     Default: ''
+
   SidecarEnvironment2Key:
     Description: 'Optional environment variable 2 key for sidecar container.'
     Type: String
     Default: ''
+
   SidecarEnvironment2Value:
     Description: 'Optional environment variable 2 value for sidecar container.'
     Type: String
     Default: ''
+
   SidecarEnvironment3Key:
     Description: 'Optional environment variable 3 key for sidecar container.'
     Type: String
     Default: ''
+
   SidecarEnvironment3Value:
     Description: 'Optional environment variable 3 value for sidecar container.'
     Type: String
     Default: ''
+
   SubDomainNameWithDot:
     Description: 'Name that is used to create the DNS entry with trailing dot, e.g. §{SubDomainNameWithDot}§{HostedZoneName}. Leave blank for naked (or apex and bare) domain. Requires ParentZoneStack parameter!'
     Type: String
     Default: ''
+
   Cpu:
     Description: 'The minimum number of vCPUs to reserve for the container.'
     Type: String
     Default: '0.25'
     AllowedValues: ['0.25', '0.5', '1', '2', '4']
+
   Memory:
     Description: 'The amount (in GB) of memory used by the task.'
     Type: String
     Default: '0.5'
     AllowedValues: ['0.5', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30']
+
   DesiredCount:
     Description: 'The number of simultaneous tasks, that you want to run on the cluster.'
     Type: Number
     Default: 2
     ConstraintDescription: 'Must be >= 1'
     MinValue: 1
+
   MaxCapacity:
     Description: 'The maximum number of simultaneous tasks, that you want to run on the cluster.'
     Type: Number
     Default: 4
     ConstraintDescription: 'Must be >= 1'
     MinValue: 1
+
   MinCapacity:
     Description: 'The minimum number of simultaneous tasks, that you want to run on the cluster.'
     Type: Number
     Default: 2
     ConstraintDescription: 'Must be >= 1'
     MinValue: 1
+
   LogsRetentionInDays:
     Description: 'Specifies the number of days you want to retain log events in the specified log group.'
     Type: Number
     Default: 14
     AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+
   SubnetsReach:
     Description: 'Should the service have direct access to the Internet or do you prefer private subnets with NAT?'
     Type: String
@@ -315,22 +506,26 @@ Parameters:
     AllowedValues:
     - Public
     - Private
+
   AutoScaling:
     Description: 'Scale number of tasks based on CPU load?'
     Type: String
     Default: 'true'
     AllowedValues: ['true', 'false']
+
   HealthCheckGracePeriod:
     Description: 'The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started.'
     Type: Number
     Default: 60
     MinValue: 0
     MaxValue: 1800
+
   Spot:
     Description: 'Run workload on spot capacity?'
     Type: String
     Default: false
     AllowedValues: [true, false]
+
 Mappings:
   CpuMap:
     '0.25':
@@ -343,6 +538,7 @@ Mappings:
       Cpu: 2048
     '4':
       Cpu: 4096
+
   MemoryMap:
     '0.5':
       Memory: 512
@@ -406,6 +602,7 @@ Mappings:
       Memory: 29696
     '30':
       Memory: 30720
+
 Conditions:
   HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, '']]
   HasAuthProxySecurityGroup: !Not [!Equals [!Ref ParentAuthProxyStack, '']]
@@ -429,6 +626,18 @@ Conditions:
   HasAppEnvironment1Key: !Not [!Equals [!Ref AppEnvironment1Key, '']]
   HasAppEnvironment2Key: !Not [!Equals [!Ref AppEnvironment2Key, '']]
   HasAppEnvironment3Key: !Not [!Equals [!Ref AppEnvironment3Key, '']]
+  HasAppEnvironment4Key: !Not [!Equals [!Ref AppEnvironment4Key, '']]
+  HasAppEnvironment5Key: !Not [!Equals [!Ref AppEnvironment5Key, '']]
+  HasAppEnvironment6Key: !Not [!Equals [!Ref AppEnvironment6Key, '']]
+  HasAppEnvironment7Key: !Not [!Equals [!Ref AppEnvironment7Key, '']]
+  HasAppEnvironment8Key: !Not [!Equals [!Ref AppEnvironment8Key, '']]
+  HasAppEnvironment9Key: !Not [!Equals [!Ref AppEnvironment9Key, '']]
+  HasAppEnvironment10Key: !Not [!Equals [!Ref AppEnvironment10Key, '']]
+  HasAppSecret1Key: !Not [!Equals [!Ref AppSecret1Key, '']]
+  HasAppSecret2Key: !Not [!Equals [!Ref AppSecret2Key, '']]
+  HasAppSecret3Key: !Not [!Equals [!Ref AppSecret3Key, '']]
+  HasAppSecret4Key: !Not [!Equals [!Ref AppSecret4Key, '']]
+  HasAppSecret5Key: !Not [!Equals [!Ref AppSecret5Key, '']]
   HasProxyImage: !Not [!Equals [!Ref ProxyImage, '']]
   HasProxyCommand: !Not [!Equals [!Ref ProxyCommand, '']]
   HasProxyEnvironment1Key: !Not [!Equals [!Ref ProxyEnvironment1Key, '']]
@@ -441,6 +650,7 @@ Conditions:
   HasSidecarEnvironment3Key: !Not [!Equals [!Ref SidecarEnvironment3Key, '']]
   HasWAF: !Not [!Equals [!Ref ParentWAFStack, '']]
   HasSpot: !Equals [!Ref Spot, 'true']
+
 Resources:
   RecordSet:
     Condition: HasZone
@@ -455,6 +665,7 @@ Resources:
       - SubDomainNameWithDot: !Ref SubDomainNameWithDot
         HostedZoneName: {'Fn::ImportValue': !Sub '${ParentZoneStack}-HostedZoneName'}
       Type: A
+
   RecordSetIPv6:
     Condition: HasZoneAndLoadBalancerSchemeInternetFacing
     Type: 'AWS::Route53::RecordSet'
@@ -468,11 +679,13 @@ Resources:
       - SubDomainNameWithDot: !Ref SubDomainNameWithDot
         HostedZoneName: {'Fn::ImportValue': !Sub '${ParentZoneStack}-HostedZoneName'}
       Type: AAAA
+
   LoadBalancerSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: !Sub '${AWS::StackName}-load-balancer'
       VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+
   LoadBalancerSecurityGroupInHttpFromWorld:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasNotAuthProxySecurityGroup
@@ -482,6 +695,7 @@ Resources:
       FromPort: 80
       ToPort: 80
       CidrIp: '0.0.0.0/0'
+
   LoadBalancerSecurityGroupInHttpFromWorldIPv6:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasNotAuthProxySecurityGroup
@@ -491,6 +705,7 @@ Resources:
       FromPort: 80
       ToPort: 80
       CidrIpv6: '::/0'
+
   LoadBalancerSecurityGroupInHttpsFromWorld:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasNotAuthProxySecurityGroupAndLoadBalancerCertificateArn
@@ -500,6 +715,7 @@ Resources:
       FromPort: 443
       ToPort: 443
       CidrIp: '0.0.0.0/0'
+
   LoadBalancerSecurityGroupInHttpsFromWorldIPv6:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasNotAuthProxySecurityGroupAndLoadBalancerCertificateArn
@@ -509,6 +725,7 @@ Resources:
       FromPort: 443
       ToPort: 443
       CidrIpv6: '::/0'
+
   LoadBalancerSecurityGroupInHttpFromAuthProxy:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasAuthProxySecurityGroup
@@ -518,6 +735,7 @@ Resources:
       FromPort: 80
       ToPort: 80
       SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentAuthProxyStack}-SecurityGroup'}
+
   LoadBalancerSecurityGroupInHttpsFromAuthProxy:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasAuthProxySecurityGroupAndLoadBalancerCertificateArn
@@ -527,6 +745,7 @@ Resources:
       FromPort: 443
       ToPort: 443
       SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentAuthProxyStack}-SecurityGroup'}
+
   LoadBalancer:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
@@ -548,12 +767,14 @@ Resources:
       - !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-SubnetsPrivate'}]
       - !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-SubnetsPublic'}]
       Type: application
+
   WebACLAssociation:
     Condition: HasWAF
     Type: AWS::WAFv2::WebACLAssociation
     Properties:
       ResourceArn: !Ref LoadBalancer
       WebACLArn: {'Fn::ImportValue': !Sub '${ParentWAFStack}-WebACL'}
+      
   HTTPCodeELB5XXTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -572,6 +793,7 @@ Resources:
       - Name: LoadBalancer
         Value: !GetAtt 'LoadBalancer.LoadBalancerFullName'
       TreatMissingData: notBreaching
+
   RejectedConnectionCountTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -590,6 +812,7 @@ Resources:
       - Name: LoadBalancer
         Value: !GetAtt 'LoadBalancer.LoadBalancerFullName'
       TreatMissingData: notBreaching
+
   HttpListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
@@ -606,6 +829,7 @@ Resources:
       LoadBalancerArn: !Ref LoadBalancer
       Port: 80
       Protocol: HTTP
+
   HttpsListener:
     Condition: HasLoadBalancerCertificateArn
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
@@ -619,6 +843,7 @@ Resources:
       Port: 443
       Protocol: HTTPS
       SslPolicy: 'ELBSecurityPolicy-FS-1-2-Res-2019-08'
+
   TargetGroup:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
@@ -637,6 +862,7 @@ Resources:
       - Key: deregistration_delay.timeout_seconds
         Value: !Ref LoadBalancerDeregistrationDelay
       VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+
   HTTPCodeTarget5XXTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -657,6 +883,7 @@ Resources:
       - Name: TargetGroup
         Value: !GetAtt TargetGroup.TargetGroupFullName
       TreatMissingData: notBreaching
+
   TargetConnectionErrorCountTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -677,6 +904,7 @@ Resources:
       - Name: TargetGroup
         Value: !GetAtt TargetGroup.TargetGroupFullName
       TreatMissingData: notBreaching
+
   TaskExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -703,6 +931,7 @@ Resources:
             - 'logs:CreateLogStream'
             - 'logs:PutLogEvents'
             Resource: !GetAtt 'LogGroup.Arn'
+
   TaskRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -714,6 +943,7 @@ Resources:
           Action: 'sts:AssumeRole'
       ManagedPolicyArns: !If [HasTaskPolicies, !Split [',', !Ref TaskPolicies], !Ref 'AWS::NoValue']
       PermissionsBoundary: !If [HasPermissionsBoundary, !Ref PermissionsBoundary, !Ref 'AWS::NoValue']
+
   TaskDefinition:
     Type: 'AWS::ECS::TaskDefinition'
     Properties:
@@ -752,9 +982,24 @@ Resources:
             'awslogs-group': !Ref LogGroup
             'awslogs-stream-prefix': app
         Environment:
-        - !If [HasAppEnvironment1Key, {Name: !Ref AppEnvironment1Key, Value: !Ref AppEnvironment1Value}, !Ref 'AWS::NoValue']
-        - !If [HasAppEnvironment2Key, {Name: !Ref AppEnvironment2Key, Value: !Ref AppEnvironment2Value}, !Ref 'AWS::NoValue']
-        - !If [HasAppEnvironment3Key, {Name: !Ref AppEnvironment3Key, Value: !Ref AppEnvironment3Value}, !Ref 'AWS::NoValue']
+          - Name: ENVIRONMENT_STAGE
+            Value: !Ref EnvironmentStage
+          - !If [HasAppEnvironment1Key, {Name: !Ref AppEnvironment1Key, Value: !Ref AppEnvironment1Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment2Key, {Name: !Ref AppEnvironment2Key, Value: !Ref AppEnvironment2Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment3Key, {Name: !Ref AppEnvironment3Key, Value: !Ref AppEnvironment3Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment4Key, {Name: !Ref AppEnvironment4Key, Value: !Ref AppEnvironment4Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment5Key, {Name: !Ref AppEnvironment5Key, Value: !Ref AppEnvironment5Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment6Key, {Name: !Ref AppEnvironment6Key, Value: !Ref AppEnvironment6Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment7Key, {Name: !Ref AppEnvironment7Key, Value: !Ref AppEnvironment7Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment8Key, {Name: !Ref AppEnvironment8Key, Value: !Ref AppEnvironment8Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment9Key, {Name: !Ref AppEnvironment9Key, Value: !Ref AppEnvironment9Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppEnvironment10Key, {Name: !Ref AppEnvironment10Key, Value: !Ref AppEnvironment10Value}, !Ref 'AWS::NoValue']        
+        Secrets:
+          - !If [HasAppSecret1Key, {Name: !Ref Secret1Key, ValueFrom: !Ref Secret1Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppSecret2Key, {Name: !Ref Secret2Key, ValueFrom: !Ref Secret2Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppSecret3Key, {Name: !Ref Secret3Key, ValueFrom: !Ref Secret3Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppSecret4Key, {Name: !Ref Secret4Key, ValueFrom: !Ref Secret4Value}, !Ref 'AWS::NoValue']
+          - !If [HasAppSecret5Key, {Name: !Ref Secret5Key, ValueFrom: !Ref Secret5Value}, !Ref 'AWS::NoValue']
       - !If
         - HasSidecarImage
         - Name: sidecar
@@ -782,10 +1027,25 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities: [FARGATE]
       TaskRoleArn: !GetAtt 'TaskRole.Arn'
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+      
   LogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
       RetentionInDays: !Ref LogsRetentionInDays
+
   ServiceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -796,6 +1056,7 @@ Resources:
         FromPort: 0
         ToPort: 65535
         IpProtocol: tcp
+
   Service:
     Type: 'AWS::ECS::Service'
     DependsOn: HttpListener
@@ -828,6 +1089,20 @@ Resources:
           Subnets: !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-Subnets${SubnetsReach}'}]
       PlatformVersion: '1.4.0'
       TaskDefinition: !Ref TaskDefinition
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+
   CPUUtilizationTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -847,6 +1122,7 @@ Resources:
       Threshold: 80
       AlarmActions:
       - {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
+
   ServiceFailedNotification:
     Condition: HasAlertTopic
     Type: 'AWS::Events::Rule'
@@ -866,6 +1142,7 @@ Resources:
       Targets:
       - Arn: {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
         Id: rule
+
   ScalableTargetRole: # based on http://docs.aws.amazon.com/AmazonECS/latest/developerguide/autoscale_IAM_role.html
     Condition: HasAutoScaling
     Type: 'AWS::IAM::Role'
@@ -896,6 +1173,7 @@ Resources:
             Action:
             - 'cloudwatch:DescribeAlarms'
             Resource: '*'
+
   ScalableTarget:
     Condition: HasAutoScaling
     Type: 'AWS::ApplicationAutoScaling::ScalableTarget'
@@ -909,6 +1187,7 @@ Resources:
       RoleARN: !GetAtt 'ScalableTargetRole.Arn'
       ScalableDimension: 'ecs:service:DesiredCount'
       ServiceNamespace: ecs
+
   ScaleUpPolicy:
     Condition: HasAutoScaling
     Type: 'AWS::ApplicationAutoScaling::ScalingPolicy'
@@ -923,6 +1202,7 @@ Resources:
         StepAdjustments:
         - MetricIntervalLowerBound: 0
           ScalingAdjustment: 25
+
   ScaleDownPolicy:
     Condition: HasAutoScaling
     Type: 'AWS::ApplicationAutoScaling::ScalingPolicy'
@@ -937,6 +1217,7 @@ Resources:
         StepAdjustments:
         - MetricIntervalUpperBound: 0
           ScalingAdjustment: -25
+
   CPUUtilizationHighAlarm:
     Condition: HasAutoScaling
     Type: 'AWS::CloudWatch::Alarm'
@@ -956,6 +1237,7 @@ Resources:
       Threshold: 60
       AlarmActions:
       - !Ref ScaleUpPolicy
+
   CPUUtilizationLowAlarm:
     Condition: HasAutoScaling
     Type: 'AWS::CloudWatch::Alarm'
@@ -975,21 +1257,26 @@ Resources:
       Threshold: 30
       AlarmActions:
       - !Ref ScaleDownPolicy
+
 Outputs:
   TemplateID:
-    Description: 'cloudonaut.io template id.'
+    Description: 'template id.'
     Value: 'fargate/service-dedicated-alb'
+
   TemplateVersion:
-    Description: 'cloudonaut.io template version.'
-    Value: '__VERSION__'
+    Description: 'template version.'
+    Value: '0.0.1'
+
   StackName:
     Description: 'Stack name.'
     Value: !Sub '${AWS::StackName}'
+
   DNSName:
     Description: 'The DNS name for the Fargate service load balancer.'
     Value: !GetAtt 'LoadBalancer.DNSName'
     Export:
       Name: !Sub '${AWS::StackName}-DNSName'
+
   URL:
     Description: 'URL to the Fargate service.'
     Value: !Sub 'http://${LoadBalancer.DNSName}'

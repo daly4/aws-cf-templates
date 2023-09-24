@@ -1,19 +1,7 @@
----
-# Copyright 2018 widdix GmbH
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Security: KMS customer managed CMK for AWS services, a cloudonaut.io template'
+
+Description: 'Security: KMS customer managed CMK for AWS services'
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -27,11 +15,13 @@ Metadata:
       - Service
       - KeySpec
       - KeyUsage
+
 Parameters:
   ParentAlertStack:
     Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
     Type: String
     Default: ''
+    
   Service:
     Description: 'Which AWS service is allowed to use this CMK (upper-case names define use-cases)'
     Type: String
@@ -62,6 +52,7 @@ Parameters:
     - dnssec-route53 # Deprecated since v13. Will be removed in v15. Use ROUTE53_DNSSEC instead.
     - cloudtrail
     Default: ALL_SERVICES
+
   KeySpec:
     Description: 'Specify the type of the CMK.'
     Type: String
@@ -75,6 +66,7 @@ Parameters:
     - ECC_NIST_P521
     - ECC_SECG_P256K1
     Default: SYMMETRIC_DEFAULT
+
   KeyUsage:
     Description: 'Which cryptographic operations should the CMK support?'
     Type: String
@@ -82,6 +74,7 @@ Parameters:
     - ENCRYPT_DECRYPT
     - SIGN_VERIFY
     Default: ENCRYPT_DECRYPT
+
 Conditions:
   HasAlertTopic: !Not [!Equals [!Ref ParentAlertStack, '']]
   HasServiceAllServices: !Equals [!Ref Service, 'ALL_SERVICES']
@@ -90,6 +83,7 @@ Conditions:
   HasServiceCloudTrail: !Equals [!Ref Service, 'CLOUDTRAIL']
   HasService: !Not [!Or [!Condition HasServiceAllServices, !Condition HasServiceS3PublicAccess, !Condition HasServiceRoute53Dnssec, !Condition HasServiceCloudTrail]]
   HasSymmetricKey: !Equals [!Ref KeySpec, 'SYMMETRIC_DEFAULT']
+
 Resources:
   Key:
     DeletionPolicy: Retain
@@ -191,6 +185,7 @@ Resources:
               StringLike:
                 'kms:EncryptionContext:aws:cloudtrail:arn': !Sub 'arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*'
           - !Ref 'AWS::NoValue'
+
   KeyAlias:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
@@ -198,6 +193,7 @@ Resources:
     Properties:
       AliasName: !Sub 'alias/${AWS::StackName}'
       TargetKeyId: !Ref Key
+
   DeletionNotification:
     Condition: HasAlertTopic
     Type: 'AWS::Events::Rule'
@@ -219,16 +215,20 @@ Resources:
       Targets:
       - Arn: {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
         Id: rule
+
 Outputs:
   TemplateID:
-    Description: 'cloudonaut.io template id.'
+    Description: 'template id.'
     Value: 'security/kms-key'
+
   TemplateVersion:
-    Description: 'cloudonaut.io template version.'
-    Value: '__VERSION__'
+    Description: 'template version.'
+    Value: '0.0.1'
+
   StackName:
     Description: 'Stack name.'
     Value: !Sub '${AWS::StackName}'
+    
   KeyId:
     Description: 'Key id.'
     Value: !Ref Key

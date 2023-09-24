@@ -1,19 +1,7 @@
----
-# Copyright 2018 widdix GmbH
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'State: RDS Aurora Serverless PostgreSQL, a cloudonaut.io template'
+
+Description: 'State: RDS Aurora Serverless PostgreSQL'
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -43,108 +31,174 @@ Metadata:
     - Label:
         default: 'Serverless Parameters'
       Parameters:
-      - AutoPause
       - MaxCapacity
       - MinCapacity
-      - SecondsUntilAutoPause
+    - Label:
+        default: 'Mandatory Tags'
+      Parameters:
+      - EnvironmentStage
+      - Application
+      - ApplicationVersion
+      - ProjectCostCenter
+      - Confidentiality
+      - Compliance
+
 Parameters:
   ParentVPCStack:
     Description: 'Stack name of parent VPC stack based on vpc/vpc-*azs.yaml template.'
     Type: String
+
   ParentClientStack:
     Description: 'Stack name of parent client stack based on state/client-sg.yaml template.'
     Type: String
+
   ParentKmsKeyStack:
     Description: 'Stack name of parent KMS key stack based on security/kms-key.yaml template (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
     Type: String
     Default: ''
+
   ParentZoneStack:
     Description: 'Optional stack name of parent zone stack based on vpc/vpc-zone-*.yaml template.'
     Type: String
     Default: ''
+
   ParentSSHBastionStack:
     Description: 'Optional but recommended stack name of parent SSH bastion host/instance stack based on vpc/vpc-*-bastion.yaml template.'
     Type: String
     Default: ''
+
   ParentAlertStack:
     Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
     Type: String
     Default: ''
+
   DBSnapshotIdentifier:
     Description: 'Optional identifier for the DB cluster snapshot from which you want to restore (leave blank to create an empty cluster).'
     Type: String
     Default: ''
+
   ParentSecretStack:
     Description: 'Optional Stack name of parent SecretsManager Secret Stack based on state/secretsmanager-dbsecret.yaml template.'
     Type: String
     Default: ''
+
   DBName:
     Description: 'Name of the database (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
     Type: String
     Default: ''
+
   DBBackupRetentionPeriod:
     Description: 'The number of days to keep snapshots of the cluster.'
     Type: Number
     MinValue: 1
     MaxValue: 35
     Default: 30
+
   DBMasterUsername:
     Description: 'The master user name for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
     Type: 'String'
     Default: master
+
   DBMasterUserPassword:
     Description: 'The master password for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot. Also ignored when ParentSecretStack is used).'
     Type: String
     NoEcho: true
     Default: ''
+
   SubDomainNameWithDot:
     Description: 'Name that is used to create the DNS entry with trailing dot, e.g. §{SubDomainNameWithDot}§{HostedZoneName}. Leave blank for naked (or apex and bare) domain. Requires ParentZoneStack parameter!'
     Type: String
     Default: 'aurora.'
+
   PreferredBackupWindow:
     Description: 'IGNORED BECAUSE OF A BUG IN CLOUDFORMATION! VALUE WILL APPLY IN THE FUTURE! The daily time range in UTC during which you want to create automated backups.' # TODO remove uppercase warning
     Type: String
     Default: '09:54-10:24'
+
   PreferredMaintenanceWindow:
     Description: 'IGNORED BECAUSE OF A BUG IN CLOUDFORMATION! VALUE WILL APPLY IN THE FUTURE! The weekly time range (in UTC) during which system maintenance can occur.' # TODO remove uppercase warning
     Type: String
     Default: 'sat:07:00-sat:07:30'
+
   EnableDataApi:
     Description: 'Enable the Data API (https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/data-api.html).'
     Type: String
     AllowedValues: ['true', 'false']
     Default: 'false'
-  AutoPause:
-    Description: 'Enable automatic pause for a Serverless Aurora cluster. A cluster can be paused only when it has no connections. If a cluster is paused for more than seven days, the cluster might be backed up with a snapshot. In this case, the cluster is restored when there is a request to connect to it.'
-    Type: String
-    AllowedValues: ['true', 'false']
-    Default: 'true'
+
   MaxCapacity:
     Description: 'The maximum capacity units for a Serverless Aurora cluster.'
     Type: String
-    AllowedValues: [2, 4, 8, 16, 32, 64, 192, 384]
     Default: 2
+
   MinCapacity:
     Description: 'The minimum capacity units for a Serverless Aurora cluster.'
     Type: String
-    AllowedValues: [2, 4, 8, 16, 32, 64, 192, 384]
-    Default: 2
-  SecondsUntilAutoPause:
-    Description: 'The time, in seconds, before a Serverless Aurora cluster is paused.'
-    Type: Number
-    MinValue: 1
-    MaxValue: 86400
-    Default: 300
+    Default: 0.5
+
   EngineVersion:
     Description: 'Aurora Serverless PostgreSQL version.'
     Type: String
-    AllowedValues: ['11.13', '10.18'] # aws rds describe-db-engine-versions --engine aurora-postgresql --query 'DBEngineVersions[?contains(SupportedEngineModes,`serverless`)].EngineVersion'
+    AllowedValues: ['14.6', '14.5'] #aws rds describe-orderable-db-instance-options --engine aurora-postgresql --db-instance-class db.serverless --region us-east-2 --query 'OrderableDBInstanceOptions[].[EngineVersion]' --output text
+
+###########################################################################
+# Mandatory tags that will be added to all resources that support tags
+###########################################################################
+  EnvironmentStage:
+    Type: String
+    Description: The environment tag is used to designate the Environment Stage of the associated AWS resource.
+    AllowedValues:
+      - dev
+      - test
+      - pre-prod
+      - prod
+    Default: dev
+
+  Application:
+    Type: String
+    Description: The Application tag is used to designate the application of the associated AWS resource. In this capacity application does not refer to an installed software component, but rather the overall business application that the resource supports.
+    AllowedPattern: "^[a-zA-Z]+[a-zA-Z ]+[a-zA-Z]+$"
+    ConstraintDescription: provide a valid application name containing only letters and spaces
+
+  ApplicationVersion:
+    Type: String
+    Description: The ApplicationVersion tag is used to designate the specific version of the application. Format should be in the Pattern - "#.#.#"
+    Default: '1.0.0'
+    AllowedPattern: '^[a-zA-Z0-9\.\-]+$'
+    ConstraintDescription: provide a valid application version
+     
+  ProjectCostCenter:
+    Type: String
+    Description: The ProjectCostCenter tag is used to designate the cost center associated with the project of the given AWS resource.
+    AllowedPattern: "^[a-zA-Z0-9]+$"
+    ConstraintDescription:  provide a valid cost center
+
+  Confidentiality:
+    Type: String
+    Description: The Confidentiality tag is used to designate the confidentiality classification of the data that is associated with the resource.
+    AllowedValues:
+      - public
+      - private
+      - confidential
+      - pii/phi
+    
+  Compliance:
+    Type: String
+    Description: The Compliance tag is used to specify the Compliance level for the AWS resource.
+    AllowedValues:
+      - hipaa
+      - sox
+      - fips
+      - other
+      - none
+
 Mappings:
   EngineVersionMap:
-    '11.13':
-      ClusterParameterGroupFamily: 'aurora-postgresql11'
-    '10.18':
-      ClusterParameterGroupFamily: 'aurora-postgresql10'
+    '14.6':
+      ClusterParameterGroupFamily: 'aurora-postgresql14'
+    '14.5':
+      ClusterParameterGroupFamily: 'aurora-postgresql14'
+
 Conditions:
   HasZone: !Not [!Equals [!Ref ParentZoneStack, '']]
   HasSSHBastionSecurityGroup: !Not [!Equals [!Ref ParentSSHBastionStack, '']]
@@ -152,6 +206,7 @@ Conditions:
   HasNotDBSnapshotIdentifier: !Equals [!Ref DBSnapshotIdentifier, '']
   HasDBSnapshotIdentifier: !Not [!Condition HasNotDBSnapshotIdentifier]
   HasSecret: !Not [!Equals [!Ref ParentSecretStack, '']]
+
 Resources:
   SecretTargetAttachment:
     Condition: HasSecret
@@ -160,6 +215,7 @@ Resources:
       TargetId: !Ref DBCluster
       SecretId: {'Fn::ImportValue': !Sub '${ParentSecretStack}-SecretArn'}
       TargetType: 'AWS::RDS::DBCluster'
+
   RecordSet:
     Condition: HasZone
     Type: 'AWS::Route53::RecordSet'
@@ -173,6 +229,7 @@ Resources:
       - !GetAtt 'DBCluster.Endpoint.Address'
       TTL: 60
       Type: CNAME
+
   ClusterSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -183,6 +240,7 @@ Resources:
         ToPort: 5432
         SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentClientStack}-ClientSecurityGroup'}
       VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+
   ClusterSecurityGroupInSSHBastion:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasSSHBastionSecurityGroup
@@ -192,11 +250,13 @@ Resources:
       FromPort: 5432
       ToPort: 5432
       SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentSSHBastionStack}-SecurityGroup'}
+
   DBSubnetGroup:
     Type: 'AWS::RDS::DBSubnetGroup'
     Properties:
       DBSubnetGroupDescription: !Ref 'AWS::StackName'
       SubnetIds: !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-SubnetsPrivate'}]
+
   DBClusterParameterGroup:
     Type: 'AWS::RDS::DBClusterParameterGroup'
     Properties:
@@ -204,6 +264,7 @@ Resources:
       Family: !FindInMap [EngineVersionMap, !Ref EngineVersion, ClusterParameterGroupFamily]
       Parameters:
         client_encoding: 'UTF8'
+
   DBCluster:
     DeletionPolicy: Snapshot # default
     UpdateReplacePolicy: Snapshot
@@ -215,7 +276,7 @@ Resources:
       DBSubnetGroupName: !Ref DBSubnetGroup
       EnableHttpEndpoint: !Ref EnableDataApi
       Engine: aurora-postgresql
-      EngineMode: serverless
+      #EngineMode: serverless
       EngineVersion: !Ref EngineVersion
       KmsKeyId: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyArn'}]
       MasterUsername: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !Ref DBMasterUsername]
@@ -228,15 +289,41 @@ Resources:
         - !Ref DBMasterUserPassword
       # PreferredBackupWindow: !Ref PreferredBackupWindow TODO re-enable as soon as CloudFormation bug ix fixed
       # PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow TODO re-enable as soon as CloudFormation bug ix fixed
-      ScalingConfiguration:
-        AutoPause: !Ref AutoPause
-        MaxCapacity: !Ref MaxCapacity
-        MinCapacity: !Ref MinCapacity
-        SecondsUntilAutoPause: !Ref SecondsUntilAutoPause
+      Port: 5432
+      ServerlessV2ScalingConfiguration:
+         MaxCapacity: !Ref MaxCapacity
+         MinCapacity: !Ref MinCapacity
       SnapshotIdentifier: !If [HasDBSnapshotIdentifier, !Ref DBSnapshotIdentifier, !Ref 'AWS::NoValue']
       StorageEncrypted: true
       VpcSecurityGroupIds:
       - !Ref ClusterSecurityGroup
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+        -
+          Key: Confidentiality
+          Value: !Ref Confidentiality
+        -
+          Key: Compliance
+          Value: !Ref Compliance
+
+  DBInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      Engine: aurora-postgresql
+      DBInstanceClass: db.serverless
+      DBClusterIdentifier: !Ref DBCluster
+
   DatabaseClusterEventSubscription:
     Condition: HasAlertTopic
     Type: 'AWS::RDS::EventSubscription'
@@ -248,26 +335,32 @@ Resources:
       SnsTopicArn: {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
       SourceIds: [!Ref DBCluster]
       SourceType: 'db-cluster'
+
 Outputs:
   TemplateID:
-    Description: 'cloudonaut.io template id.'
+    Description: 'template id.'
     Value: 'state/rds-aurora-serverless-postgres'
+
   TemplateVersion:
-    Description: 'cloudonaut.io template version.'
-    Value: '__VERSION__'
+    Description: 'template version.'
+    Value: '0.0.1'
+
   StackName:
     Description: 'Stack name.'
     Value: !Sub '${AWS::StackName}'
+
   ClusterName:
     Description: 'The name of the cluster.'
     Value: !Ref DBCluster
     Export:
       Name: !Sub '${AWS::StackName}-ClusterName'
+
   DNSName:
     Description: 'The connection endpoint for the DB cluster.'
     Value: !GetAtt 'DBCluster.Endpoint.Address'
     Export:
       Name: !Sub '${AWS::StackName}-DNSName'
+
   SecurityGroupId:
     Description: 'The security group used to manage access to RDS Aurora Serverless Postgres.'
     Value: !Ref ClusterSecurityGroup

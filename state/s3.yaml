@@ -1,19 +1,7 @@
----
-# Copyright 2018 widdix GmbH
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'State: S3 bucket, a cloudonaut.io template, sponsored by https://github.com/ngault'
+
+Description: 'State: S3 bucket'
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -30,6 +18,7 @@ Metadata:
       - BucketName
       - Access
       - Versioning
+      - ReadWritePolicy
       - NoncurrentVersionExpirationInDays
       - ExpirationInDays
       - ExpirationPrefix
@@ -47,55 +36,82 @@ Metadata:
         default: 'Permission Parameters'
       Parameters:
       - PermissionsBoundary
+    - Label:
+        default: 'Mandatory Tags'
+      Parameters:
+      - EnvironmentStage
+      - Application
+      - ApplicationVersion
+      - ProjectCostCenter
+      - Confidentiality
+      - Compliance
+
 Parameters:
   ParentKmsKeyStack:
     Description: 'Optional Stack name of parent KMS key stack based on security/kms-key.yaml template.'
     Type: String
     Default: ''
+
   ParentS3VirusScanStack:
     Description: 'Optional stack name of parent Antivirus for Amazon S3 stack based on https://github.com/widdix/aws-s3-virusscan template.'
     Type: String
     Default: ''
+
   ParentVpcEndpointStack:
     Description: 'Optional Stack name of parent VPC endpoint stack based on vpc/vpc-endpoint-s3.yaml template (Required if Access := VpcEndpointRead).'
     Type: String
     Default: ''
+
   ParentS3StackAccessLog:
     Description: 'Optional stack name of parent s3 stack based on state/s3.yaml template (with Access set to S3AccessLogWrite) to store access logs.'
     Type: String
     Default: ''
+
   BucketName:
     Description: 'Optional name of the bucket.'
     Type: String
     Default: ''
+
   Access:
     Description: 'Access policy of the bucket.'
     Type: String
     Default: Private
     AllowedValues: [Private, PublicRead, CloudFrontRead, CloudFrontAccessLogWrite, ElbAccessLogWrite, S3AccessLogWrite, ConfigWrite, CloudTrailWrite, VpcEndpointRead, FlowLogWrite]
+  
   Versioning:
     Description: 'Enable versioning to keep a backup if objects change.'
     Type: String
     Default: true
     AllowedValues: [true, false, 'false-but-was-true']
+
+  ReadWritePolicy:
+    Description: 'Create Read/Write policy for bucket for app access.'
+    Type: String
+    Default: false
+    AllowedValues: [true, false]
+
   NoncurrentVersionExpirationInDays:
     Description: 'Remove noncurrent object versions after days (set to 0 to disable).'
     Type: Number
     Default: 0
     MinValue: 0
+  
   ExpirationInDays:
     Description: 'Remove objects after days (set to 0 to disable).'
     Type: Number
     Default: 0
     MinValue: 0
+  
   ExpirationPrefix:
     Description: 'Optional key prefix for expiring objects.'
     Type: String
     Default: ''
+  
   LambdaFunctionArn:
     Description: 'Optional ARN of the AWS Lambda function that S3 invokes when the specified event type occurs.'
     Type: 'String'
     Default: ''
+  
   LambdaFunctionEvent:
     Description: 'S3 bucket event for which to invoke the AWS Lambda function.'
     Type: 'String'
@@ -116,19 +132,74 @@ Parameters:
     - 's3:Replication:OperationMissedThreshold'
     - 's3:Replication:OperationReplicatedAfterThreshold'
     - 's3:Replication:OperationNotTracked'
+  
   LambdaFunctionFilterPrefix:
     Description: 'Optional preifx filter for which to invoke the AWS Lambda function (leave empty for no filter).'
     Type: String
     Default: ''
+  
   LogsRetentionInDays:
     Description: 'Specifies the number of days you want to retain log events in the specified log group.'
     Type: Number
     Default: 14
     AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+  
   PermissionsBoundary:
     Description: 'Optional ARN for a policy that will be used as the permission boundary for all roles created by this template.'
     Type: String
     Default: ''
+
+###########################################################################
+# Mandatory tags that will be added to all resources that support tags
+###########################################################################
+  EnvironmentStage:
+    Type: String
+    Description: The environment tag is used to designate the Environment Stage of the associated AWS resource.
+    AllowedValues:
+      - dev
+      - test
+      - pre-prod
+      - prod
+    Default: dev
+
+  Application:
+    Type: String
+    Description: The Application tag is used to designate the application of the associated AWS resource. In this capacity application does not refer to an installed software component, but rather the overall business application that the resource supports.
+    AllowedPattern: "^[a-zA-Z]+[a-zA-Z ]+[a-zA-Z]+$"
+    ConstraintDescription: provide a valid application name containing only letters and spaces
+
+  ApplicationVersion:
+    Type: String
+    Description: The ApplicationVersion tag is used to designate the specific version of the application. Format should be in the Pattern - "#.#.#"
+    Default: '1.0.0'
+    AllowedPattern: '^[a-zA-Z0-9\.\-]+$'
+    ConstraintDescription: provide a valid application version
+     
+  ProjectCostCenter:
+    Type: String
+    Description: The ProjectCostCenter tag is used to designate the cost center associated with the project of the given AWS resource.
+    AllowedPattern: "^[a-zA-Z0-9]+$"
+    ConstraintDescription:  provide a valid cost center
+
+  Confidentiality:
+    Type: String
+    Description: The Confidentiality tag is used to designate the confidentiality classification of the data that is associated with the resource.
+    AllowedValues:
+      - public
+      - private
+      - confidential
+      - pii/phi
+    
+  Compliance:
+    Type: String
+    Description: The Compliance tag is used to specify the Compliance level for the AWS resource.
+    AllowedValues:
+      - hipaa
+      - sox
+      - fips
+      - other
+      - none
+
 Conditions:
   HasKmsKey: !Not [!Equals [!Ref ParentKmsKeyStack, '']]
   HasS3Bucket: !Not [!Equals [!Ref ParentS3StackAccessLog, '']]
@@ -157,6 +228,8 @@ Conditions:
   HasLambdaFunctionFilterPrefix: !Not [!Equals [!Ref LambdaFunctionFilterPrefix, '']]
   HasPublicAccessBlock: !Not [!Condition HasPublicReadAccess]
   HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, '']]
+  HasReadWritePolicy: !Equals [!Ref ReadWritePolicy, true]
+
 Resources:
   Bucket: # cannot be deleted with data
     Type: 'AWS::S3::Bucket'
@@ -186,6 +259,26 @@ Resources:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
         - !If [HasKmsKey, {BucketKeyEnabled: true, ServerSideEncryptionByDefault: {KMSMasterKeyID: {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyArn'}, SSEAlgorithm: 'aws:kms'}}, {ServerSideEncryptionByDefault: {SSEAlgorithm: 'AES256'}}]
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+        -
+          Key: Confidentiality
+          Value: !Ref Confidentiality
+        -
+          Key: Compliance
+          Value: !Ref Compliance
+
   BucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
     Properties:
@@ -346,12 +439,43 @@ Resources:
             Action: 's3:GetBucketAcl'
             Resource: !GetAtt 'Bucket.Arn'
           - !Ref 'AWS::NoValue'
+  
+  BucketReadWriteRole:
+    Condition: HasReadWritePolicy
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'lambda.amazonaws.com'
+          Action: 'sts:AssumeRole'
+      PermissionsBoundary: !If [HasPermissionsBoundary, !Ref PermissionsBoundary, !Ref 'AWS::NoValue']
+  
+  BucketReadWritePolicy:
+    Condition: HasReadWritePolicy
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Roles:
+        - !Ref BucketReadWriteRole
+      PolicyName: bucketreadwrite
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action:
+          - 's3:PutObject'
+          - 's3:GetObject'
+          - 's3:ListBucket'
+          Resource: !Sub '${Bucket.Arn}/*'
+
   CloudFrontOriginAccessIdentity:
     Condition: HasCloudFrontReadAccess
     Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
     Properties:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Ref Bucket
+  
   LambdaRole:
     Condition: HasCloudFrontAccessLogWrite
     Type: 'AWS::IAM::Role'
@@ -373,6 +497,7 @@ Resources:
             - 's3:PutBucketAcl'
             - 's3:GetBucketAcl'
             Resource: '*' # We can not !GetAtt 'Bucket.Arn' because we need acces to the old and new bucket when the bucket is replaced!
+  
   LambdaPolicy:
     Condition: HasCloudFrontAccessLogWrite
     Type: 'AWS::IAM::Policy'
@@ -387,6 +512,7 @@ Resources:
           - 'logs:CreateLogStream'
           - 'logs:PutLogEvents'
           Resource: !GetAtt 'LambdaLogGroup.Arn'
+  
   LambdaFunction: # needs no monitoring because it is used as a custom resource
     Condition: HasCloudFrontAccessLogWrite
     Type: 'AWS::Lambda::Function'
@@ -456,12 +582,14 @@ Resources:
       Role: !GetAtt 'LambdaRole.Arn'
       Runtime: 'nodejs16.x'
       Timeout: 60
+  
   LambdaLogGroup:
     Condition: HasCloudFrontAccessLogWrite
     Type: 'AWS::Logs::LogGroup'
     Properties:
       LogGroupName: !Sub '/aws/lambda/${LambdaFunction}'
       RetentionInDays: !Ref LogsRetentionInDays
+  
   BucketAclCloudFrontAccessLogWrite:
     Condition: HasCloudFrontAccessLogWrite
     Type: 'Custom::BucketAclCloudFrontAccessLogWrite'
@@ -472,34 +600,48 @@ Resources:
     Properties:
       Bucket: !Ref Bucket
       ServiceToken: !GetAtt 'LambdaFunction.Arn'
+
 Outputs:
   TemplateID:
-    Description: 'cloudonaut.io template id.'
+    Description: 'template id.'
     Value: 'state/s3'
+
   TemplateVersion:
-    Description: 'cloudonaut.io template version.'
-    Value: '__VERSION__'
+    Description: 'template version.'
+    Value: '0.0.1'
+
   StackName:
     Description: 'Stack name.'
     Value: !Sub '${AWS::StackName}'
+
   BucketName:
     Description: 'Name of the bucket'
     Value: !Ref Bucket
     Export:
       Name: !Sub '${AWS::StackName}-BucketName'
+
   BucketDomainName:
     Description: 'Domain name of the bucket.'
     Value: !GetAtt 'Bucket.DomainName'
     Export:
       Name: !Sub '${AWS::StackName}-BucketDomainName'
+
   BucketRegionalDomainName:
     Description: 'Regional domain name of the bucket.'
     Value: !GetAtt 'Bucket.RegionalDomainName'
     Export:
       Name: !Sub '${AWS::StackName}-BucketRegionalDomainName'
+
   CloudFrontOriginAccessIdentity:
     Condition: HasCloudFrontReadAccess
     Description: 'Origin access identity for secure CloudFront access.'
     Value: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
     Export:
       Name: !Sub '${AWS::StackName}-CloudFrontOriginAccessIdentity'
+
+  BucketReadWritePolicyARM:
+    Condition: HasReadWritePolicy
+    Description: 'The ARN of the bucket read/wrie policy.'
+    Value: !Ref BucketReadWritePolicy
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketReadWritePolicyARN'

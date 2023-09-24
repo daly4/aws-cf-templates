@@ -1,19 +1,7 @@
----
-# Copyright 2018 widdix GmbH
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'State: RDS Aurora, a cloudonaut.io template, sponsored by https://github.com/ngault'
+
+Description: 'State: RDS Aurora'
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -41,33 +29,50 @@ Metadata:
       - ReadSubDomainNameWithDot
       - PreferredBackupWindow
       - PreferredMaintenanceWindow
+    - Label:
+        default: 'Mandatory Tags'
+      Parameters:
+      - EnvironmentStage
+      - Application
+      - ApplicationVersion
+      - ProjectCostCenter
+      - Confidentiality
+      - Compliance
+      
 Parameters:
   ParentVPCStack:
     Description: 'Stack name of parent VPC stack based on vpc/vpc-*azs.yaml template.'
     Type: String
+
   ParentClientStack:
     Description: 'Stack name of parent client stack based on state/client-sg.yaml template.'
     Type: String
+
   ParentKmsKeyStack:
     Description: 'Optional Stack name of parent KMS key stack based on security/kms-key.yaml template (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
     Type: String
     Default: ''
+
   ParentZoneStack:
     Description: 'Optional stack name of parent zone stack based on vpc/vpc-zone-*.yaml template.'
     Type: String
     Default: ''
+
   ParentSSHBastionStack:
     Description: 'Optional but recommended stack name of parent SSH bastion host/instance stack based on vpc/vpc-*-bastion.yaml template.'
     Type: String
     Default: ''
+
   ParentAlertStack:
     Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
     Type: String
     Default: ''
+
   ParentSecretStack:
     Description: 'Optional Stack name of parent SecretsManager Secret Stack based on state/secretsmanager-dbsecret.yaml template.'
     Type: String
     Default: ''
+
   Engine:
     Description: 'Aurora engine and version'
     Type: String
@@ -84,49 +89,111 @@ Parameters:
     - 'aurora-postgresql-12.8'
     - 'aurora-postgresql-11.9'
     - 'aurora-postgresql-10.21'
+
   DBSnapshotIdentifier:
     Description: 'Optional identifier for the DB cluster snapshot from which you want to restore (leave blank to create an empty cluster).'
     Type: String
     Default: ''
+
   DBInstanceClass:
     Description: 'The instance type of database server (see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.DBInstanceClass.html).'
     Type: String
     Default: 'db.t2.small'
+
   DBName:
     Description: 'Name of the database (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
     Type: String
     Default: ''
+
   DBBackupRetentionPeriod:
     Description: 'The number of days to keep snapshots of the cluster.'
     Type: Number
     MinValue: 1
     MaxValue: 35
     Default: 30
+
   DBMasterUsername:
     Description: 'The master user name for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
     Type: 'String'
     Default: master
+
   DBMasterUserPassword:
     Description: 'The master password for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot. Also ignored when ParentSecretStack is used).'
     Type: String
     NoEcho: true
     Default: ''
+
   SubDomainNameWithDot:
     Description: 'Name that is used to create the DNS entry with trailing dot, e.g. §{SubDomainNameWithDot}§{HostedZoneName}. Leave blank for naked (or apex and bare) domain. Requires ParentZoneStack parameter!'
     Type: String
     Default: 'aurora.'
+
   ReadSubDomainNameWithDot:
     Description: 'Name that is used to create the read DNS entry with trailing dot, e.g. §{SubDomainNameWithDot}§{HostedZoneName}. Leave blank for naked (or apex and bare) domain. Requires ParentZoneStack parameter!'
     Type: String
     Default: 'read-aurora.'
+    
   PreferredBackupWindow:
     Description: 'The daily time range in UTC during which you want to create automated backups.'
     Type: String
     Default: '09:54-10:24'
+
   PreferredMaintenanceWindow:
     Description: 'The weekly time range (in UTC) during which system maintenance can occur.'
     Type: String
     Default: 'sat:07:00-sat:07:30'
+
+###########################################################################
+# Mandatory tags that will be added to all resources that support tags
+###########################################################################
+  EnvironmentStage:
+    Type: String
+    Description: The environment tag is used to designate the Environment Stage of the associated AWS resource.
+    AllowedValues:
+      - dev
+      - test
+      - pre-prod
+      - prod
+    Default: dev
+
+  Application:
+    Type: String
+    Description: The Application tag is used to designate the application of the associated AWS resource. In this capacity application does not refer to an installed software component, but rather the overall business application that the resource supports.
+    AllowedPattern: "^[a-zA-Z]+[a-zA-Z ]+[a-zA-Z]+$"
+    ConstraintDescription: provide a valid application name containing only letters and spaces
+
+  ApplicationVersion:
+    Type: String
+    Description: The ApplicationVersion tag is used to designate the specific version of the application. Format should be in the Pattern - "#.#.#"
+    Default: '1.0.0'
+    AllowedPattern: '^[a-zA-Z0-9\.\-]+$'
+    ConstraintDescription: provide a valid application version
+     
+  ProjectCostCenter:
+    Type: String
+    Description: The ProjectCostCenter tag is used to designate the cost center associated with the project of the given AWS resource.
+    AllowedPattern: "^[a-zA-Z0-9]+$"
+    ConstraintDescription:  provide a valid cost center
+
+  Confidentiality:
+    Type: String
+    Description: The Confidentiality tag is used to designate the confidentiality classification of the data that is associated with the resource.
+    AllowedValues:
+      - public
+      - private
+      - confidential
+      - pii/phi
+    
+  Compliance:
+    Type: String
+    Description: The Compliance tag is used to specify the Compliance level for the AWS resource.
+    AllowedValues:
+      - hipaa
+      - sox
+      - fips
+      - other
+      - none
+
 Mappings:
   EngineMap:
     '8.0.mysql-aurora.3.02.1':
@@ -201,6 +268,7 @@ Mappings:
       Port: 5432
       ClusterParameterGroupFamily: 'aurora-postgresql10'
       ParameterGroupFamily: 'aurora-postgresql10'
+
 Conditions:
   HasSecret: !Not [!Equals [!Ref ParentSecretStack, '']]
   HasKmsKey: !Not [!Equals [!Ref ParentKmsKeyStack, '']]
@@ -210,6 +278,7 @@ Conditions:
   HasDBSnapshotIdentifier: !Not [!Equals [!Ref DBSnapshotIdentifier, '']]
   HasKmsKeyAndNotDBSnapshotIdentifier: !And [!Condition HasKmsKey, !Not [!Condition HasDBSnapshotIdentifier]]
   HasEngineMySQL: !Equals [!FindInMap [EngineMap, !Ref Engine, Engine], 'aurora-mysql']
+
 Resources:
   SecretTargetAttachment:
     Condition: HasSecret
@@ -218,6 +287,7 @@ Resources:
       TargetId: !Ref DBCluster
       SecretId: {'Fn::ImportValue': !Sub '${ParentSecretStack}-SecretArn'}
       TargetType: 'AWS::RDS::DBCluster'
+
   RecordSet:
     Condition: HasZone
     Type: 'AWS::Route53::RecordSet'
@@ -231,6 +301,7 @@ Resources:
       - !GetAtt 'DBCluster.Endpoint.Address'
       TTL: 60
       Type: CNAME
+
   ReadRecordSet:
     Condition: HasZone
     Type: 'AWS::Route53::RecordSet'
@@ -244,6 +315,7 @@ Resources:
       - !GetAtt 'DBCluster.ReadEndpoint.Address'
       TTL: 60
       Type: CNAME
+
   ClusterSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -254,6 +326,7 @@ Resources:
         ToPort: !FindInMap [EngineMap, !Ref Engine, Port]
         SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentClientStack}-ClientSecurityGroup'}
       VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+
   ClusterSecurityGroupInSSHBastion:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasSSHBastionSecurityGroup
@@ -263,11 +336,13 @@ Resources:
       FromPort: !FindInMap [EngineMap, !Ref Engine, Port]
       ToPort: !FindInMap [EngineMap, !Ref Engine, Port]
       SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentSSHBastionStack}-SecurityGroup'}
+
   DBSubnetGroup:
     Type: 'AWS::RDS::DBSubnetGroup'
     Properties:
       DBSubnetGroupDescription: !Ref 'AWS::StackName'
       SubnetIds: !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-SubnetsPrivate'}]
+
   DBClusterParameterGroup:
     Type: 'AWS::RDS::DBClusterParameterGroup'
     Properties:
@@ -284,6 +359,7 @@ Resources:
         collation_connection: utf8_general_ci
         collation_server: utf8_general_ci
       - client_encoding: 'UTF8'
+
   DBCluster:
     DeletionPolicy: Snapshot # default
     UpdateReplacePolicy: Snapshot
@@ -312,11 +388,32 @@ Resources:
       StorageEncrypted: !If [HasDBSnapshotIdentifier, !Ref 'AWS::NoValue', !If [HasKmsKey, true, false]]
       VpcSecurityGroupIds:
       - !Ref ClusterSecurityGroup
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+        -
+          Key: Confidentiality
+          Value: !Ref Confidentiality
+        -
+          Key: Compliance
+          Value: !Ref Compliance
+
   DBParameterGroup:
     Type: 'AWS::RDS::DBParameterGroup'
     Properties:
       Description: !Ref 'AWS::StackName'
       Family: !FindInMap [EngineMap, !Ref Engine, ParameterGroupFamily]
+
   DBInstanceA:
     Type: 'AWS::RDS::DBInstance'
     Properties:
@@ -328,6 +425,26 @@ Resources:
       DBParameterGroupName: !Ref DBParameterGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
       Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+        -
+          Key: Confidentiality
+          Value: !Ref Confidentiality
+        -
+          Key: Compliance
+          Value: !Ref Compliance
+
   DBInstanceB:
     Type: 'AWS::RDS::DBInstance'
     Properties:
@@ -339,6 +456,26 @@ Resources:
       DBParameterGroupName: !Ref DBParameterGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
       Engine: !FindInMap [EngineMap, !Ref Engine, Engine]
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+        -
+          Key: Confidentiality
+          Value: !Ref Confidentiality
+        -
+          Key: Compliance
+          Value: !Ref Compliance
+
   DatabaseACPUUtilizationTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -358,6 +495,7 @@ Resources:
       Period: 600
       Statistic: Average
       Threshold: 80
+
   DatabaseBCPUUtilizationTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -377,6 +515,7 @@ Resources:
       Period: 600
       Statistic: Average
       Threshold: 80
+
   DatabaseACPUCreditBalanceTooLowAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -396,6 +535,7 @@ Resources:
       Period: 600
       Statistic: Average
       Threshold: 20
+
   DatabaseBCPUCreditBalanceTooLowAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -415,6 +555,7 @@ Resources:
       Period: 600
       Statistic: Average
       Threshold: 20
+
   DatabaseAFreeableMemoryTooLowAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -434,6 +575,7 @@ Resources:
       Period: 600
       Statistic: Average
       Threshold: 64000000 # 64 Megabyte in Byte
+
   DatabaseBFreeableMemoryTooLowAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -453,6 +595,7 @@ Resources:
       Period: 600
       Statistic: Average
       Threshold: 64000000 # 64 Megabyte in Byte
+
   DatabaseClusterEventSubscription:
     Condition: HasAlertTopic
     Type: 'AWS::RDS::EventSubscription'
@@ -464,31 +607,50 @@ Resources:
       SnsTopicArn: {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}
       SourceIds: [!Ref DBCluster]
       SourceType: 'db-cluster'
+      
 Outputs:
   TemplateID:
-    Description: 'cloudonaut.io template id.'
+    Description: 'template id.'
     Value: 'state/rds-aurora'
+
   TemplateVersion:
-    Description: 'cloudonaut.io template version.'
-    Value: '__VERSION__'
+    Description: 'template version.'
+    Value: '0.0.1'
+
   StackName:
     Description: 'Stack name.'
     Value: !Sub '${AWS::StackName}'
+
   ClusterName:
     Description: 'The name of the cluster.'
     Value: !Ref DBCluster
     Export:
       Name: !Sub '${AWS::StackName}-ClusterName'
+
   DNSName:
     Description: 'The connection endpoint for the DB cluster.'
     Value: !GetAtt 'DBCluster.Endpoint.Address'
     Export:
       Name: !Sub '${AWS::StackName}-DNSName'
+  
+  DNSPort:
+    Description: 'The connection endpoint port for the DB cluster.'
+    Value: !GetAtt 'DBCluster.Endpoint.Port'
+    Export:
+      Name: !Sub '${AWS::StackName}-DNSPort'
+
   ReadDNSName:
     Description: 'The reader endpoint for the DB cluster.'
     Value: !GetAtt 'DBCluster.ReadEndpoint.Address'
     Export:
       Name: !Sub '${AWS::StackName}-ReadDNSName'
+  
+  ReadDNSPort:
+    Description: 'The reader endpoint port for the DB cluster.'
+    Value: !GetAtt 'DBCluster.ReadEndpoint.Port'
+    Export:
+      Name: !Sub '${AWS::StackName}-ReadDNSPort'
+
   SecurityGroupId:
     Description: 'The security group used to manage access to RDS Aurora.'
     Value: !Ref ClusterSecurityGroup

@@ -1,0 +1,537 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Elastic Beanstalk
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: 'Parent Stacks'
+      Parameters:
+      - ParentVPCStack
+      - ParentZoneStack
+      - ParentS3AppStack
+      - ParentAlertStack
+      - ParentClientStack1
+      - ParentClientStack2
+      - ParentClientStack3
+    - Label:
+        default: 'Elastic Beanstalk Parameters'
+      Parameters:
+      - StackType
+      - ELBIngressPort
+      - AppIngressPort
+    - Label:
+        default: 'Mandatory Tags'
+      Parameters:
+      - EnvironmentStage
+      - Application
+      - ApplicationVersion
+      - ProjectCostCenter
+
+Parameters:
+  ParentVPCStack:
+    Description: 'Stack name of parent VPC stack based on vpc/vpc-*azs.yaml template.'
+    Type: String
+
+  ParentS3AppStack:
+    Description: 'Stack name of parent state/s3.yaml template.'
+    Type: String
+  
+  ParentZoneStack:
+    Description: 'Optional stack name of parent zone stack based on vpc/zone-*.yaml template.'
+    Type: String
+    Default: ''
+  
+  ParentAlertStack:
+    Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
+    Type: String
+    Default: ''
+
+  ParentClientStack1:
+    Description: 'Optional stack name of parent Client Security Group stack based on state/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
+    Type: String
+    Default: ''
+
+  ParentClientStack2:
+    Description: 'Optional stack name of parent Client Security Group stack based on state/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
+    Type: String
+    Default: ''
+
+  ParentClientStack3:
+    Description: 'Optional stack name of parent Client Security Group stack based on state/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
+    Type: String
+    Default: ''
+###########
+  StackType:
+    Description: node, rails, python, python3 or spring
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    AllowedValues:
+      - node
+      - rails
+      - spring
+      - python
+      - python3
+    ConstraintDescription: Specify node, rails, python, python3 or spring
+
+  ELBIngressPort:
+    Description: The ELB ingress port used by security groups
+    Type: Number
+    MinValue: 0
+    MaxValue: 65535
+    ConstraintDescription: TCP ports must be between 0 - 65535
+    Default: 80
+
+  AppIngressPort:
+    Description: The application ingress port used by security groups
+    Type: Number
+    MinValue: 0
+    MaxValue: 65535
+    ConstraintDescription: TCP ports must be between 0 - 65535
+    Default: 80
+
+  AppS3Bucket:
+    Description: S3 Bucket containing your application package.
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+
+  AppS3Key:
+    Description: S3 Bucket key for your application package
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+
+  EC2KeyPairName:
+    Description: EC2 key pair name for SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+
+  DevInstanceType:
+    Description: The instance type for the dev environment
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    Default: t2.micro
+
+  ProdInstanceType:
+    Description: The instance type for the prod environment
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    Default: t2.large
+
+  SSLCertificateArn:
+    Description: The SSL/TLS certificate ARN
+    Type: String
+    MinLength: 0
+    MaxLength: 2048
+    Default: ""
+
+  AutoScalingMinInstanceCount:
+    Description: Minimum number of EC2 instances for Auto Scaling
+    Type: Number
+    MinValue: 1
+    MaxValue: 20
+    Default: 2
+    ConstraintDescription: Specify a number between 1 - 20
+
+  AutoScalingMaxInstanceCount:
+    Description: Maximum number of EC2 instances for Auto Scaling
+    Type: Number
+    MinValue: 1
+    MaxValue: 20
+    Default: 6
+    ConstraintDescription: Specify a number between 1 - 20
+
+###########################################################################
+# Mandatory tags that will be added to all resources that support tags
+###########################################################################
+  EnvironmentStage:
+    Type: String
+    Description: The environment tag is used to designate the Environment Stage of the associated AWS resource.
+    AllowedValues:
+      - dev
+      - test
+      - pre-prod
+      - prod
+    Default: dev
+
+  Application:
+    Type: String
+    Description: The Application tag is used to designate the application of the associated AWS resource. In this capacity application does not refer to an installed software component, but rather the overall business application that the resource supports.
+    AllowedPattern: "^[a-zA-Z]+[a-zA-Z ]+[a-zA-Z]+$"
+    ConstraintDescription: provide a valid application name containing only letters and spaces
+
+  ApplicationVersion:
+    Type: String
+    Description: The ApplicationVersion tag is used to designate the specific version of the application. Format should be in the Pattern - "#.#.#"
+    Default: '1.0.0'
+    AllowedPattern: '^[a-zA-Z0-9\.\-]+$'
+    ConstraintDescription: provide a valid application version
+     
+  ProjectCostCenter:
+    Type: String
+    Description: The ProjectCostCenter tag is used to designate the cost center associated with the project of the given AWS resource.
+    AllowedPattern: "^[a-zA-Z0-9]+$"
+    ConstraintDescription:  provide a valid cost center
+
+Conditions:
+  CreateProdEnv: !Equals [ !Ref EnvironmentStage, prod ]
+  TlsEnabled: !Not [ !Equals [ !Ref SSLCertificateArn, "" ] ]
+
+Mappings:
+  # Maps stack type parameter to solution stack name string
+  StackMap:
+    node:
+      stackName: 64bit Amazon Linux 2018.03 v4.5.3 running Node.js
+    rails:
+      stackName: 64bit Amazon Linux 2018.03 v2.8.3 running Ruby 2.4 (Puma)
+    spring:
+      stackName: 64bit Amazon Linux 2018.03 v3.0.3 running Tomcat 8 Java 8
+    python:
+      stackName: 64bit Amazon Linux 2018.03 v2.7.3 running Python 2.7
+    python3:
+      stackName: 64bit Amazon Linux 2018.03 v2.7.3 running Python 3.6
+
+Resources:
+  ELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP/HTTPs ingress
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: tcp
+        ToPort: !Ref ELBIngressPort
+        FromPort: !Ref ELBIngressPort
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-ELBSecurityGroup"
+
+  ELBSecurityGroupToAppEgress:
+    Type: AWS::EC2::SecurityGroupEgress  # prevent security group circular references
+    Properties:
+      GroupId: !Ref ELBSecurityGroup
+      IpProtocol: tcp
+      ToPort: !Ref AppIngressPort
+      FromPort: !Ref AppIngressPort
+      DestinationSecurityGroupId: !Ref AppSecurityGroup
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable access from ELB to app
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - SourceSecurityGroupId: !Ref ELBSecurityGroup
+        IpProtocol: tcp
+        ToPort: !Ref AppIngressPort
+        FromPort: !Ref AppIngressPort
+      - SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentSSHBastionStack}-SecurityGroup'}
+        IpProtocol: tcp
+        ToPort: 22
+        FromPort: 22
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-AppSecurityGroup"
+
+  AppSecurityGroupFromELBIngress:
+    Type: AWS::EC2::SecurityGroupIngress  # prevent security group circular references
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      ToPort: !Ref AppIngressPort
+      FromPort: !Ref AppIngressPort
+      SourceSecurityGroupId: !Ref ELBSecurityGroup
+
+  AppSecurityGroupFromBastionIngress:
+    Type: AWS::EC2::SecurityGroupIngress  # prevent security group circular references
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      ToPort: 22
+      FromPort: 22
+      SourceSecurityGroupId: !Ref BastionSecurityGroup
+
+  ElasticBeanstalkServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": { "Service": [ "elasticbeanstalk.amazonaws.com" ]},
+            "Action": [ "sts:AssumeRole" ]
+          }]
+        }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth
+        - arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService
+
+  ElasticBeanstalkApplication:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties:
+      ApplicationName: !Ref ElasticBeanstalkApplicationName
+
+  ElasticBeanstalkApplicationVersion:
+    Type: AWS::ElasticBeanstalk::ApplicationVersion
+    Properties:
+      ApplicationName: !Ref ElasticBeanstalkApplication
+      SourceBundle:
+        S3Bucket: !Ref AppS3Bucket
+        S3Key: !Ref AppS3Key
+
+  ElasticBeanstalkEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      EnvironmentName: !Sub "${ApplicationName}-${EnvironmentStage}"
+      ApplicationName: !Ref ElasticBeanstalkApplication
+      TemplateName: !Ref ConfigurationTemplate
+      VersionLabel: !Ref ElasticBeanstalkApplicationVersion
+      Tags:
+        -
+          Key: EnvironmentStage
+          Value: !Ref EnvironmentStage
+        -
+          Key: Application
+          Value: !Ref Application
+        -
+          Key: ApplicationVersion
+          Value: !Ref ApplicationVersion
+        -
+          Key: ProjectCostCenter
+          Value: !Ref ProjectCostCenter
+
+  # The configuration template contains environment parameters such as those
+  # that relate to the autoscaling group (e.g. size, triggers), placement of
+  # resources in the VPC, load balancer setup, and environment variables
+  ConfigurationTemplate:
+    Type: AWS::ElasticBeanstalk::ConfigurationTemplate
+    Properties:
+      ApplicationName: !Ref ElasticBeanstalkApplication
+      SolutionStackName: !FindInMap [ StackMap, !Ref StackType, stackName ]
+      OptionSettings:
+
+      - Namespace: aws:elasticbeanstalk:environment
+        OptionName: EnvironmentType
+        Value: LoadBalanced
+
+      - Namespace: aws:elasticbeanstalk:environment
+        OptionName: LoadBalancerType
+        Value: application
+
+      - Namespace: aws:elasticbeanstalk:environment
+        OptionName: ServiceRole
+        Value: !Ref ElasticBeanstalkServiceRole
+
+        # AUTOSCALING OPTIONS
+      - Namespace: aws:autoscaling:asg
+        OptionName: MinSize
+        Value: !Ref AutoScalingMinInstanceCount
+
+      - Namespace: aws:autoscaling:asg
+        OptionName: MaxSize
+        Value: !Ref AutoScalingMaxInstanceCount
+
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: SecurityGroups
+        Value: !Ref AppSecurityGroup
+
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: SSHSourceRestriction
+        Value:
+          "Fn::Join":
+          - ','
+          - - 'tcp, 22, 22'
+            - !ImportValue
+              "Fn::Sub": "${ParentSSHBastionStack}-SecurityGroup"
+
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: InstanceType
+        Value: !If [ CreateProdEnv, !Ref ProdInstanceType, !Ref DevInstanceType ]
+
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: IamInstanceProfile
+        Value: !Ref AppInstanceProfile
+
+      - Namespace: aws:autoscaling:launchconfiguration
+        OptionName: EC2KeyName
+        Value: !Ref EC2KeyPairName
+
+      - Namespace: aws:autoscaling:updatepolicy:rollingupdate
+        OptionName: RollingUpdateEnabled
+        Value: true
+
+      - Namespace: aws:autoscaling:updatepolicy:rollingupdate
+        OptionName: RollingUpdateType
+        Value: Health
+
+      - Namespace: aws:autoscaling:trigger
+        OptionName: MeasureName
+        Value: CPUUtilization
+
+      - Namespace: aws:autoscaling:trigger
+        OptionName: Unit
+        Value: Percent
+
+      - Namespace: aws:autoscaling:trigger
+        OptionName: UpperThreshold
+        Value: 80
+
+      - Namespace: aws:autoscaling:trigger
+        OptionName: LowerThreshold
+        Value: 40
+
+        # VPC OPTIONS (PLACEMENT OF RESOURCES IN SUBNETS)
+      - Namespace: aws:ec2:vpc
+        OptionName: VPCId
+        Value: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+
+      - Namespace: aws:ec2:vpc
+        OptionName: Subnets
+        Value:
+          "Fn::Join":
+          - ','
+          - - !ImportValue
+                "Fn::Sub": "${ParentVPCStack}-SubnetAPrivate"
+            - !ImportValue
+                "Fn::Sub": "${ParentVPCStack}-SubnetBPrivate"
+
+      - Namespace: aws:ec2:vpc
+        OptionName: ELBSubnets
+        Value:
+          "Fn::Join":
+          - ','
+          - - !ImportValue
+                "Fn::Sub": "${ParentVPCStack}-SubnetAPublic"
+            - !ImportValue
+                "Fn::Sub": "${ParentVPCStack}-SubnetBPublic"
+
+      - Namespace: aws:elbv2:listener:default
+        OptionName: ListenerEnabled
+        Value: !If [ TlsEnabled, false, true ]
+
+      - Namespace: aws:elbv2:loadbalancer
+        OptionName: SecurityGroups
+        Value: !Ref ELBSecurityGroup
+
+      - Namespace: aws:elbv2:loadbalancer
+        OptionName: ManagedSecurityGroup
+        Value: !Ref ELBSecurityGroup
+
+      - Namespace: aws:elbv2:listenerrule:default
+        OptionName: PathPatterns
+        Value: "/*"
+
+      - Namespace: !Sub "aws:elbv2:listener:${ELBIngressPort}"
+        OptionName: Protocol
+        Value: !If [ TlsEnabled, HTTPS, HTTP ]
+
+      - Namespace: !Sub "aws:elbv2:listener:${ELBIngressPort}"
+        OptionName: Rules
+        Value: default
+
+      - Namespace: !Sub "aws:elbv2:listener:${ELBIngressPort}"
+        OptionName: SSLCertificateArns
+        Value: !Ref SSLCertificateArn
+
+      # CLOUDWATCH LOGS
+      - Namespace: aws:elasticbeanstalk:cloudwatch:logs
+        OptionName: StreamLogs
+        Value: true
+
+      - Namespace: aws:elasticbeanstalk:cloudwatch:logs
+        OptionName: DeleteOnTerminate
+        Value: true
+
+      # ENVIRONMENT VARIABLES - COMMON TO ALL STACKS
+      - Namespace: aws:elasticbeanstalk:application:environment
+        OptionName: AWS_REGION
+        Value: !Ref AWS::Region
+
+  # IAM resources
+  AppRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  AppPolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: App
+      Roles:
+      - !Ref AppRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action: "*"
+            Resource: "*"
+
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref AppRole
+
+Outputs:
+  TemplateID:
+    Description: 'template id.'
+    Value: 'ebs/elastic-beanstalk'
+
+  TemplateVersion:
+    Description: 'template version.'
+    Value: '0.0.1'
+
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  
+  TypeOfStack:
+    Description: 'Stack type'
+    Value: !Ref StackType
+    Export:
+      Name: !Sub "${AWS::StackName}-TypeOfStack"
+
+  ElasticBeanstalkEnvironmentURL:
+    Description: 'ElasticBeanstalkEnvironment URL'
+    Value: !GetAtt ElasticBeanstalkEnvironment.EndpointURL
+    Export:
+      Name: !Sub "${AWS::StackName}-ElasticBeanstalkEnvironmentURL"
+
+  ElasticBeanstalkEnvironmentStage:
+    Description: 'ElasticBeanstalkEnvironment Stage'
+    Value: !Sub "${ApplicationName}-${EnvironmentStage}"
+    Export:
+      Name: !Sub "${AWS::StackName}-ElasticBeanstalkEnvironmentStage"
+
+  ELBSecurityGroup:
+    Description: Security group ID for Internet-facing ELB
+    Value: !GetAtt ELBSecurityGroup.GroupId
+    Export:
+      Name: !Sub "${AWS::StackName}-ELBSecurityGroup"
+
+  AppSecurityGroup:
+    Description: Security group ID for app behind ELB
+    Value: !GetAtt AppSecurityGroup.GroupId
+    Export:
+      Name: !Sub "${AWS::StackName}-AppSecurityGroup"
+  
+
+
+

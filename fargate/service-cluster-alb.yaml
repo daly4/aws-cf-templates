@@ -15,6 +15,8 @@ Metadata:
       - ParentClientStack1
       - ParentClientStack2
       - ParentClientStack3
+      - ParentKmsKeyStack
+      - ParentSecretStack
     - Label:
         default: 'Load Balancer Parameters'
       Parameters:
@@ -135,6 +137,16 @@ Parameters:
 
   ParentClientStack3:
     Description: 'Optional stack name of parent Client Security Group stack based on state/client-sg.yaml template to allow network access from the service to whatever uses the client security group.'
+    Type: String
+    Default: ''
+
+  ParentKmsKeyStack:
+    Description: 'Stack name of parent KMS key stack based on security/kms-key.yaml template (ignored when DBSnapshotIdentifier is set, value used from snapshot).'
+    Type: String
+    Default: ''
+
+  ParentSecretStack:
+    Description: 'Stack name of parent SecretsManager Secret Stack based on state/secretsmanager-dbsecret.yaml template.'
     Type: String
     Default: ''
 
@@ -468,8 +480,8 @@ Parameters:
     Description: 'The number of simultaneous tasks, that you want to run on the cluster.'
     Type: Number
     Default: 2
-    ConstraintDescription: 'Must be >= 1'
-    MinValue: 1
+    ConstraintDescription: 'Must be >= 0'
+    MinValue: 0
   
   MaxCapacity:
     Description: 'The maximum number of simultaneous tasks, that you want to run on the cluster.'
@@ -482,8 +494,8 @@ Parameters:
     Description: 'The minimum number of simultaneous tasks, that you want to run on the cluster.'
     Type: Number
     Default: 2
-    ConstraintDescription: 'Must be >= 1'
-    MinValue: 1
+    ConstraintDescription: 'Must be >= 0'
+    MinValue: 0
   
   LogsRetentionInDays:
     Description: 'Specifies the number of days you want to retain log events in the specified log group.'
@@ -626,6 +638,7 @@ Mappings:
       Memory: 30720
 
 Conditions:
+  HasSecretStack: !Not [!Equals [!Ref ParentSecretStack, '']]
   HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, '']]
   HasLoadBalancerHttps: !Equals [!Ref LoadBalancerHttps, 'true']
   HasLoadBalancerPathPattern: !Not [!Equals [!Ref LoadBalancerPathPattern, '']]
@@ -810,6 +823,19 @@ Resources:
             - 'logs:CreateLogStream'
             - 'logs:PutLogEvents'
             Resource: !GetAtt 'LogGroup.Arn'
+      - !If
+        - HasSecretStack
+        - PolicyName: GetSecret
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+              - 'secretsmanager:GetSecretValue'
+              - 'kms:Decrypt'
+              Resource:
+              - {'Fn::ImportValue': !Sub '${ParentSecretStack}-SecretArn'}
+              - {'Fn::ImportValue': !Sub '${ParentKmsKeyStack}-KeyArn'}
+        - !Ref 'AWS::NoValue'
 
   TaskRole:
     Type: 'AWS::IAM::Role'
@@ -863,8 +889,8 @@ Resources:
             'awslogs-group': !Ref LogGroup
             'awslogs-stream-prefix': app
         Environment:
-          - Name: ENVIRONMENT_STAGE
-            Value: !Ref EnvironmentStage
+        - Name: ENVIRONMENT_STAGE
+          Value: !Ref EnvironmentStage
         - !If [HasAppEnvironment1Key, {Name: !Ref AppEnvironment1Key, Value: !Ref AppEnvironment1Value}, !Ref 'AWS::NoValue']
         - !If [HasAppEnvironment2Key, {Name: !Ref AppEnvironment2Key, Value: !Ref AppEnvironment2Value}, !Ref 'AWS::NoValue']
         - !If [HasAppEnvironment3Key, {Name: !Ref AppEnvironment3Key, Value: !Ref AppEnvironment3Value}, !Ref 'AWS::NoValue']
@@ -876,11 +902,11 @@ Resources:
         - !If [HasAppEnvironment9Key, {Name: !Ref AppEnvironment9Key, Value: !Ref AppEnvironment9Value}, !Ref 'AWS::NoValue']
         - !If [HasAppEnvironment10Key, {Name: !Ref AppEnvironment10Key, Value: !Ref AppEnvironment10Value}, !Ref 'AWS::NoValue']        
         Secrets:
-        - !If [HasAppSecret1Key, {Name: !Ref Secret1Key, ValueFrom: !Ref Secret1Value}, !Ref 'AWS::NoValue']
-        - !If [HasAppSecret2Key, {Name: !Ref Secret2Key, ValueFrom: !Ref Secret2Value}, !Ref 'AWS::NoValue']
-        - !If [HasAppSecret3Key, {Name: !Ref Secret3Key, ValueFrom: !Ref Secret3Value}, !Ref 'AWS::NoValue']
-        - !If [HasAppSecret4Key, {Name: !Ref Secret4Key, ValueFrom: !Ref Secret4Value}, !Ref 'AWS::NoValue']
-        - !If [HasAppSecret5Key, {Name: !Ref Secret5Key, ValueFrom: !Ref Secret5Value}, !Ref 'AWS::NoValue']
+        - !If [HasAppSecret1Key, {Name: !Ref AppSecret1Key, ValueFrom: !Ref AppSecret1Value}, !Ref 'AWS::NoValue']
+        - !If [HasAppSecret2Key, {Name: !Ref AppSecret2Key, ValueFrom: !Ref AppSecret2Value}, !Ref 'AWS::NoValue']
+        - !If [HasAppSecret3Key, {Name: !Ref AppSecret3Key, ValueFrom: !Ref AppSecret3Value}, !Ref 'AWS::NoValue']
+        - !If [HasAppSecret4Key, {Name: !Ref AppSecret4Key, ValueFrom: !Ref AppSecret4Value}, !Ref 'AWS::NoValue']
+        - !If [HasAppSecret5Key, {Name: !Ref AppSecret5Key, ValueFrom: !Ref AppSecret5Value}, !Ref 'AWS::NoValue']
       - !If
         - HasSidecarImage
         - Name: sidecar

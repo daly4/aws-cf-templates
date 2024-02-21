@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'EC2: Amazon Linux 2 (mutable, private), a cloudonaut.io template'
+
+Description: 'EC2: Amazon Linux 2 (mutable, private)'
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -63,6 +65,7 @@ Metadata:
       - MaintenanceWindowScheduleTimezone
       - BackupRetentionPeriod
       - BackupScheduleExpression
+
 Parameters:
   ParentVPCStack:
     Description: 'Stack name of parent VPC stack based on vpc/vpc-*azs.yaml template.'
@@ -200,7 +203,8 @@ Parameters:
   AmazonLinux2Version:
     Description: 'Version of Amazon Linux 2 to boot from the first time (ignored if RestoreImageId is set; select the latest version for new stacks; OS updates are enabled to patch the system).'
     Type: String
-    AllowedValues: ['20240109.0', '20230727.0', '20220316.0', '20220218.3', '20220218.1', '20220207.1', '20211223.0', '20211005.0', '20210721.2', '20210617.0', '20210126.0', '20200917.0', '20200722.0', '20200520.1', '20200406.0', '20200304.0', '20200207.1', '20191217.0']
+    AllowedValues: ['20240109.0', '20230727.0', '20220316.0', '20220218.3', '20220218.1', '20211223.0', '20211005.0', '20210721.2', '20210617.0', '20210126.0', '20200917.0', '20200722.0', '20200520.1', '20200406.0', '20200304.0', '20200207.1', '20191217.0']
+
 Mappings:
   VersionMap:
     '20240109.0':
@@ -1023,6 +1027,7 @@ Mappings:
       AMI: 'ami-03caa3f860895f82e'
     'us-west-2':
       AMI: 'ami-04590e7389a6e577c'
+
 Conditions:
   HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, '']]
   HasKmsKey: !Not [!Equals [!Ref ParentKmsKeyStack, '']]
@@ -1045,6 +1050,7 @@ Conditions:
   HasBackupRetentionPeriod: !Not [!Equals [!Ref BackupRetentionPeriod, 0]]
   HasRestoreImageId: !Not [!Equals [!Ref RestoreImageId, '']]
   HasMaintenanceWindowSchedule: !Not [!Equals [!Ref MaintenanceWindowSchedule, '']]
+
 Resources:
   RecordSet:
     Condition: HasZone
@@ -1059,6 +1065,7 @@ Resources:
       - !GetAtt 'NetworkInterface.PrimaryPrivateIpAddress'
       TTL: 60
       Type: A
+
   NetworkInterface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
@@ -1068,15 +1075,18 @@ Resources:
       - !If [HasClientSecurityGroup2, {'Fn::ImportValue': !Sub '${ParentClientStack2}-ClientSecurityGroup'}, !Ref 'AWS::NoValue']
       - !If [HasClientSecurityGroup3, {'Fn::ImportValue': !Sub '${ParentClientStack3}-ClientSecurityGroup'}, !Ref 'AWS::NoValue']
       SubnetId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-${SubnetName}'}
+
   Logs:
     Type: 'AWS::Logs::LogGroup'
     Properties:
       RetentionInDays: !Ref LogsRetentionInDays
+  
   SecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: !Ref Name
       VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+  
   SecurityGroupInSSHBastion:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasSSHBastionSecurityGroup
@@ -1086,6 +1096,7 @@ Resources:
       FromPort: 22
       ToPort: 22
       SourceSecurityGroupId: {'Fn::ImportValue': !Sub '${ParentSSHBastionStack}-SecurityGroup'}
+  
   SecurityGroupInSSHWorld:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasNotSSHBastionSecurityGroup
@@ -1095,6 +1106,7 @@ Resources:
       FromPort: 22
       ToPort: 22
       CidrIp: '0.0.0.0/0'
+  
   SecurityGroupIngressTcpPort1:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasIngressTcpPort1
@@ -1105,6 +1117,7 @@ Resources:
       ToPort: !Ref IngressTcpPort1
       SourceSecurityGroupId: !If [HasIngressTcpParentClientStack1, {'Fn::ImportValue': !Sub '${IngressTcpParentClientStack1}-ClientSecurityGroup'}, !Ref 'AWS::NoValue']
       CidrIp: !If [HasIngressTcpParentClientStack1, !Ref 'AWS::NoValue', '0.0.0.0/0']
+  
   SecurityGroupIngressTcpPort2:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasIngressTcpPort2
@@ -1115,6 +1128,7 @@ Resources:
       ToPort: !Ref IngressTcpPort2
       SourceSecurityGroupId: !If [HasIngressTcpParentClientStack2, {'Fn::ImportValue': !Sub '${IngressTcpParentClientStack2}-ClientSecurityGroup'}, !Ref 'AWS::NoValue']
       CidrIp: !If [HasIngressTcpParentClientStack2, !Ref 'AWS::NoValue', '0.0.0.0/0']
+  
   SecurityGroupIngressTcpPort3:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: HasIngressTcpPort3
@@ -1125,11 +1139,13 @@ Resources:
       ToPort: !Ref IngressTcpPort3
       SourceSecurityGroupId: !If [HasIngressTcpParentClientStack3, {'Fn::ImportValue': !Sub '${IngressTcpParentClientStack3}-ClientSecurityGroup'}, !Ref 'AWS::NoValue']
       CidrIp: !If [HasIngressTcpParentClientStack3, !Ref 'AWS::NoValue', '0.0.0.0/0']
+  
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Roles:
       - !Ref IAMRole
+  
   IAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -1178,6 +1194,18 @@ Resources:
             - 'logs:DescribeLogStreams'
             - 'logs:DescribeLogGroups'
             Resource: !GetAtt 'Logs.Arn'
+      - PolicyName: ecr
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'ecr:GetAuthorizationToken'
+            - 'ecr:BatchCheckLayerAvailability'
+            - 'ecr:GetDownloadUrlForLayer'
+            - 'ecr:BatchGetImage'
+            Resource: '*'
+
   IAMPolicySSM:
     Type: 'AWS::IAM::Policy'
     Properties:
@@ -1198,6 +1226,7 @@ Resources:
         - Effect: Allow
           Action: 'ssm:UpdateInstanceAssociationStatus'
           Resource: !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${VirtualMachine}'
+  
   IAMPolicySSHAccess:
     Type: 'AWS::IAM::Policy'
     Condition: HasIAMUserSSHAccess
@@ -1219,12 +1248,13 @@ Resources:
           - 'iam:GetSSHPublicKey'
           Resource:
           - !Sub 'arn:aws:iam::${AWS::AccountId}:user/*'
+  
   VirtualMachine: # TODO make IMDSv2 required (waits for https://github.com/aws-cloudformation/aws-cloudformation-coverage-roadmap/issues/655)
     Type: 'AWS::EC2::Instance'
     Metadata:
       'AWS::CloudFormation::Init':
         configSets:
-          default: [cloudwatch, !If [HasIAMUserSSHAccess, ssh-access, !Ref 'AWS::NoValue'], config]
+          default: [cloudwatch, !If [HasIAMUserSSHAccess, ssh-access, !Ref 'AWS::NoValue'], config, install_docker]
         cloudwatch:
           packages:
             rpm:
@@ -1465,6 +1495,18 @@ Resources:
               amazon-ssm-agent:
                 enabled: true
                 ensureRunning: true
+        install_docker:
+          packages:
+              yum:
+                  docker: []
+          services:
+              sysvinit:
+                  docker:
+                      enabled: "true"
+                      ensureRunning: "true"
+          commands:
+              docker_for_ec2_user:
+                  command: usermod -G docker ec2-user 
     Properties:
       IamInstanceProfile: !Ref InstanceProfile
       ImageId: !If [HasRestoreImageId, !Ref RestoreImageId, !FindInMap [!FindInMap [VersionMap, !Ref AmazonLinux2Version, Map], !Ref 'AWS::Region', AMI]]
@@ -1486,7 +1528,7 @@ Resources:
           trap '/opt/aws/bin/cfn-signal -e 1 --region ${AWS::Region} --stack ${AWS::StackName} --resource VirtualMachine' ERR
           ${UserData}
           /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource VirtualMachine --region ${AWS::Region}
-          /opt/aws/bin/cfn-signal -e 0 --region ${AWS::Region} --stack ${AWS::StackName} --resource VirtualMachine
+          /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource VirtualMachine
       Tags:
       - Key: Name
         Value: !Ref Name
@@ -1494,6 +1536,7 @@ Resources:
       ResourceSignal:
         Count: 1
         Timeout: PT10M
+
   RecoveryAlarm:
     Type: 'AWS::CloudWatch::Alarm'
     Properties:
@@ -1510,6 +1553,7 @@ Resources:
       Dimensions:
       - Name: InstanceId
         Value: !Ref VirtualMachine
+  
   CPUTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -1527,6 +1571,7 @@ Resources:
       Dimensions:
       - Name: InstanceId
         Value: !Ref VirtualMachine
+  
   MemoryTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -1544,6 +1589,7 @@ Resources:
       Dimensions:
       - Name: InstanceId
         Value: !Ref VirtualMachine
+  
   DiskTooHighAlarm:
     Condition: HasAlertTopic
     Type: 'AWS::CloudWatch::Alarm'
@@ -1565,6 +1611,7 @@ Resources:
         Value: xfs
       - Name: path
         Value: '/'
+  
   MaintenanceWindow:
     Condition: HasMaintenanceWindowSchedule
     Type: 'AWS::SSM::MaintenanceWindow'
@@ -1575,6 +1622,7 @@ Resources:
       Name: !Ref 'AWS::StackName'
       Schedule: !Ref MaintenanceWindowSchedule
       ScheduleTimezone: !Ref MaintenanceWindowScheduleTimezone
+  
   MaintenanceWindowTarget:
     Condition: HasMaintenanceWindowSchedule
     Type: 'AWS::SSM::MaintenanceWindowTarget'
@@ -1584,6 +1632,7 @@ Resources:
       - Key: InstanceIds
         Values: [!Ref VirtualMachine]
       WindowId: !Ref MaintenanceWindow
+  
   MaintenanceWindowTask:
     Condition: HasMaintenanceWindowSchedule
     Type: 'AWS::SSM::MaintenanceWindowTask'
@@ -1601,12 +1650,14 @@ Resources:
             Operation: [Install]
       TaskType: 'RUN_COMMAND'
       WindowId: !Ref MaintenanceWindow
+  
   BackupVault: # cannot be deleted with data
     Condition: HasBackupRetentionPeriod
     Type: 'AWS::Backup::BackupVault'
     Properties:
       BackupVaultName: !Ref 'AWS::StackName'
       Notifications: !If [HasAlertTopic, {BackupVaultEvents: [BACKUP_JOB_STARTED, BACKUP_JOB_COMPLETED, RESTORE_JOB_STARTED, RESTORE_JOB_COMPLETED, RECOVERY_POINT_MODIFIED], SNSTopicArn: {'Fn::ImportValue': !Sub '${ParentAlertStack}-TopicARN'}}, !Ref 'AWS::NoValue']
+  
   BackupPlan:
     Condition: HasBackupRetentionPeriod
     Type: 'AWS::Backup::BackupPlan'
@@ -1621,6 +1672,7 @@ Resources:
           ScheduleExpression: !Ref BackupScheduleExpression
           StartWindowMinutes: 60
           TargetBackupVault: !Ref BackupVault
+  
   BackupRole:
     Condition: HasBackupRetentionPeriod
     Type: 'AWS::IAM::Role'
@@ -1669,6 +1721,7 @@ Resources:
             Resource:
             - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}::snapshot/*'
             - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:volume/*'
+  
   BackupSelection:
     Condition: HasBackupRetentionPeriod
     Type: 'AWS::Backup::BackupSelection'
@@ -1679,13 +1732,14 @@ Resources:
         Resources:
         - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${VirtualMachine}'
         SelectionName: !Ref 'AWS::StackName'
+
 Outputs:
   TemplateID:
-    Description: 'cloudonaut.io template id.'
+    Description: 'template id.'
     Value: 'ec2/al2-mutable-private'
   TemplateVersion:
-    Description: 'cloudonaut.io template version.'
-    Value: '__VERSION__'
+    Description: 'template version.'
+    Value: '0.0.1'
   StackName:
     Description: 'Stack name.'
     Value: !Sub '${AWS::StackName}'

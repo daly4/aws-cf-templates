@@ -82,7 +82,7 @@ Parameters:
     Type: String
     Default: true
     AllowedValues: [true, false, 'false-but-was-true']
-
+  
   NoncurrentVersionExpirationInDays:
     Description: 'Remove noncurrent object versions after days (set to 0 to disable).'
     Type: Number
@@ -225,7 +225,6 @@ Conditions:
   HasBlockPublicAccess: !Not [!Or [!Condition HasPublicReadAccess, !Condition HasPublicWriteAccess]]
   HasPermissionsBoundary: !Not [!Equals [!Ref PermissionsBoundary, '']]
   HasBucketOwnerPreferred: !Or [!Condition HasCloudFrontAccessLogWrite, !Condition HasS3AccessLogWrite, !Not [!Condition HasBlockPublicAccess]]
-
 Resources:
   Bucket: # cannot be deleted with data
     Type: 'AWS::S3::Bucket'
@@ -462,35 +461,6 @@ Resources:
             Action: 's3:GetBucketAcl'
             Resource: !GetAtt 'Bucket.Arn'
           - !Ref 'AWS::NoValue'
-  
-  BucketReadWriteRole:
-    Condition: HasReadWritePolicy
-    Type: 'AWS::IAM::Role'
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: 'lambda.amazonaws.com'
-          Action: 'sts:AssumeRole'
-      PermissionsBoundary: !If [HasPermissionsBoundary, !Ref PermissionsBoundary, !Ref 'AWS::NoValue']
-  
-  BucketReadWritePolicy:
-    Condition: HasReadWritePolicy
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      Roles:
-        - !Ref BucketReadWriteRole
-      PolicyName: bucketreadwrite
-      PolicyDocument:
-        Statement:
-        - Effect: Allow
-          Action:
-          - 's3:PutObject'
-          - 's3:GetObject'
-          - 's3:ListBucket'
-          Resource: !Sub '${Bucket.Arn}/*'
 
   CloudFrontOriginAccessIdentity:
     Condition: HasCloudFrontReadAccess
@@ -498,7 +468,7 @@ Resources:
     Properties:
       CloudFrontOriginAccessIdentityConfig:
         Comment: !Ref Bucket
-  
+
   LambdaRole:
     Condition: HasCloudFrontAccessLogWrite
     Type: 'AWS::IAM::Role'
@@ -535,7 +505,7 @@ Resources:
           - 'logs:CreateLogStream'
           - 'logs:PutLogEvents'
           Resource: !GetAtt 'LambdaLogGroup.Arn'
-  
+
   LambdaFunction: # needs no monitoring because it is used as a custom resource
     Condition: HasCloudFrontAccessLogWrite
     Type: 'AWS::Lambda::Function'
@@ -604,14 +574,14 @@ Resources:
       Role: !GetAtt 'LambdaRole.Arn'
       Runtime: 'nodejs20.x'
       Timeout: 60
-  
+
   LambdaLogGroup:
     Condition: HasCloudFrontAccessLogWrite
     Type: 'AWS::Logs::LogGroup'
     Properties:
       LogGroupName: !Sub '/aws/lambda/${LambdaFunction}'
       RetentionInDays: !Ref LogsRetentionInDays
-  
+
   BucketAclCloudFrontAccessLogWrite:
     Condition: HasCloudFrontAccessLogWrite
     Type: 'Custom::BucketAclCloudFrontAccessLogWrite'
@@ -660,10 +630,3 @@ Outputs:
     Value: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
     Export:
       Name: !Sub '${AWS::StackName}-CloudFrontOriginAccessIdentity'
-
-  BucketReadWritePolicyARM:
-    Condition: HasReadWritePolicy
-    Description: 'The ARN of the bucket read/wrie policy.'
-    Value: !Ref BucketReadWritePolicy
-    Export:
-      Name: !Sub '${AWS::StackName}-BucketReadWritePolicyARN'
